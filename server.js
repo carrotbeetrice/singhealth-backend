@@ -1,7 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser')
 const app = express();
-const apiRoutes = require('./routes');
+const userRoutes = require('./routes/userRoutes');
 const mongoose = require('mongoose');
 
 /**
@@ -12,7 +12,7 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 
 // Use API routes
-app.use('api/', apiRoutes);
+app.use('/api/user', userRoutes);
 
 /**
  * Constants
