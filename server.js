@@ -33,10 +33,8 @@ MongoClient.connect(conString, {useUnifiedTopology: true})
         const quotesCollection = db.collection('quotes')
 
         /**
-         * Request handlers
+         *  GET REQUESTS
          */
-
-         // Handle GET requests
         app.get('/', (req, res) => {
             db.collection('quotes').find().toArray()
                 .then(results => {
@@ -47,7 +45,9 @@ MongoClient.connect(conString, {useUnifiedTopology: true})
             
         })
 
-        // Handle POST requests
+        /**
+         *  POST REQUESTS
+         */
         app.post('/quotes', (req, res) => {
             quotesCollection.insertOne(req.body)
                 .then(result => {
@@ -59,7 +59,9 @@ MongoClient.connect(conString, {useUnifiedTopology: true})
                 .catch(error => console.error(error))
         })
 
-        // Handle PUT requests
+        /**
+         *  PUT REQUESTS
+         */
         app.put('/quotes', (req, res) => {
             quotesCollection.findOneAndUpdate(
                 { name: 'Yoda'},
@@ -77,6 +79,22 @@ MongoClient.connect(conString, {useUnifiedTopology: true})
                     res.json('Success') // Send back to request
                 })
                 .catch(error => console.error(error))
+        })
+
+        /**
+         *  DELETE REQUESTS
+         */
+        app.delete('/quotes', (req, res) => {
+            quotesCollection.deleteOne(
+                { name: req.body.name }
+            )
+                .then(result => {
+                    if (result.deletedCount === 0) {
+                        return res.json('No Anakin quotes left to delete')
+                    }
+                    res.json('Bye Ani')
+                })
+                .catch(err => console.error(err))
         })
 
     })
