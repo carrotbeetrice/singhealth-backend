@@ -1,5 +1,7 @@
-// let router = require('express').Router();
-// let User = require('../models/userModel');
+let router = require('express').Router();
+let User = require('../models/userModel');
+
+router.get('/institutions', User.getInstitutions);
 
 // /**
 //  * User login
@@ -50,4 +52,4 @@
 //     });
 // });
 
-// module.exports = router;
+module.exports = router;

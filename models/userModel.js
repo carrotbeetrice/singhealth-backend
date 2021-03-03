@@ -1,7 +1,27 @@
-// const mongoose = require('mongoose');
-// const crypto = require('crypto');
+const crypto = require('crypto');
+const db = require('../pgpool');
 
-// const UserSchema = mongoose.Schema({
+const pool = db.getPool();
+
+const getUsers = (req, res) => {
+    pool.query("", (err, results) => {
+        if (err) throw err;
+        res.status(200).json(results.rows);
+    });
+};
+
+const getInstitutions = (req, res) => {
+    pool.query("SELECT * FROM \"Institutions\"", (err, results) => {
+        if (err) throw err;
+        res.status(200).json(results.rows);
+    });
+};
+
+module.exports = {
+    getInstitutions
+}
+
+// cons../pgpoolUserSchema = mongoose.Schema({
 //     name: {
 //         type: String,
 //         required: true
