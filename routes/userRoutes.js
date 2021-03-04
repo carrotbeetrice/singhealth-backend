@@ -6,6 +6,14 @@ const _ = require('underscore');
 const pool = db.getPool();
 
 // GET /tenants - Get list of all tenants
+router.get('/tenants', (req, res) => {
+    let getTenantsQuery = sql.select().from('Users')
+        .where({RoleId: 2}).toParams();
+    pool.query(getTenantsQuery.text, getTenantsQuery.values, (err, results) => {
+        if (err) throw err;
+        res.status(200).send(results.rows);
+    });
+});
 
 // GET /auditors - Get list of all auditors
 
@@ -28,17 +36,25 @@ router.get('/institutions', (req, res) => {
 // POST /auditors/login - Login auditor
 
 
-// UPDATE /tenants/register - Register tenant
-const registerTenant = (req, res) => {
-    const tenantInfo = {
-        email: req.body.email,
-        password: setPassword(req.body.password),
-        last_login: new Date().toLocaleString(),
-        is_active: true
-    }
+// PUT /tenants/register - Register tenant
+router.put('/tenants/register', (req, res) => {
+    var toRegister = new User(
+        null,
+        req.body.email,
+        req.body.password,
+        null,
+        null
+    );
 
+    let registerQuery = sql.update('Users', {Hash: toRegister.hash})
+        .where({Email: toRegister.email}).returning('*').toParams();
 
-};
+    pool.query(registerQuery.text, registerQuery.values, (err, results) => {
+        if (err) throw err;
+        res.send(results.rows);
+    });
+
+});
 
 // POST /auditors/register - Register auditor
 
@@ -56,18 +72,15 @@ router.post('/tenants/create', (req, res) => {
         var newTenant = new User(
             req.body.name, // name
             req.body.email, // email
-            '', // password; blank until user registration
+            null, // password; blank until user registration
             2, // role 
             results.rows[0].InstitutionId // institution
         );
     
-        newTenant.is_active = false;
-    
         var tableInsert = {
             Name: newTenant.name,
-            Hash: newTenant.hash,
+            Hash: '',
             Email: newTenant.email,
-            IsActive: newTenant.is_active,
             RoleId: newTenant.role,
             InstitutionId: newTenant.institution
         };
