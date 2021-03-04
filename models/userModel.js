@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 
+const saltRounds = 10;
+
 module.exports = class User {
     constructor(name, email, password, role, institution) {
         this.name = name;
@@ -8,6 +10,7 @@ module.exports = class User {
         this.hash = ((password === '') || (password === null)) ? '' : this.setPassword(password);
         this.role = role;
         this.institution = parseInt(institution);
+
     }
 
     /**
@@ -23,8 +26,8 @@ module.exports = class User {
  * Check if entered password is correct
  */
     validPassword = (password) => {
-            var hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, 'sha512').toString('hex');
-            return this.hash === hash;
-        };
+        var hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, 'sha512').toString('hex');
+        return this.hash === hash;
+    };
 };
 

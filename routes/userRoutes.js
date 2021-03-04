@@ -30,7 +30,40 @@ router.get('/institutions', (req, res) => {
     });
 });
 
-// POST /tenants/login - Login tenant
+// GET /tenants/login - Login tenant
+router.get('/tenants/login', (req, res) => {
+    var loginUser = new User(
+        null,
+        req.body.email,
+        req.body.password,
+        null,
+        null
+    );
+
+    let loginQuery = sql.select().from('Users')
+        .where({
+            Email: loginUser.email
+        }).toParams();
+
+    pool.query(loginQuery.text, loginQuery.values, (err, results) => {
+        if (err) throw err;
+        
+        if (results.rows === null) {
+            return res.status(400).send({
+                message: "Tenant not found"
+            });
+        } else if (loginUser.validPassword(req.body.password)) {
+            return res.status(201).send({
+                message: "Tenant logged in"
+            });
+        } else {
+            return res.status(400).send({
+                message: "Wrong password"
+            });
+        }
+
+    });
+});
 
 
 // POST /auditors/login - Login auditor
