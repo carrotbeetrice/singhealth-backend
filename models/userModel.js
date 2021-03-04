@@ -1,25 +1,37 @@
 const crypto = require('crypto');
-const db = require('../pgpool');
 
-const pool = db.getPool();
+module.exports = class User {
+    constructor(name, email, password, role, institution) {
+        this.name = name;
+        this.email = email;
+        this.salt = crypto.randomBytes(16).toString('hex');
+        this.hash = this.setPassword(password);
+        this.role = role;
+        this.institution = parseInt(institution);
+        this.is_active;
+    }
 
-const getUsers = (req, res) => {
-    pool.query("", (err, results) => {
-        if (err) throw err;
-        res.status(200).json(results.rows);
-    });
+    /**
+     * Set salt and hash password for the user
+     * If y'all are interested to read more: https://auth0.com/blog/adding-salt-to-hashing-a-better-way-to-store-passwords/
+     */
+    setPassword = (password) => {
+        var hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, 'sha512').toString('hex');
+        return hash;
+    };
+
+    /**
+     * Check if entered password is correct
+     */
+    validPassword = (password) => {
+            var hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, 'sha512').toString('hex');
+            return this.hash === hash;
+        };
 };
 
-const getInstitutions = (req, res) => {
-    pool.query("SELECT * FROM \"Institutions\"", (err, results) => {
-        if (err) throw err;
-        res.status(200).json(results.rows);
-    });
-};
-
-module.exports = {
-    getInstitutions
-}
+// module.exports = {
+//     User
+// }
 
 // cons../pgpoolUserSchema = mongoose.Schema({
 //     name: {
@@ -34,10 +46,7 @@ module.exports = {
 //     salt: String
 // });
 
-// /**
-//  * Set salt and hash password for the user
-//  * If y'all are interested to read more: https://auth0.com/blog/adding-salt-to-hashing-a-better-way-to-store-passwords/
-//  */
+
 // UserSchema.methods.setPassword = (password) => {
 //     // Create unique salt for user
 //     this.salt = crypto.randomBytes(16).toString('hex');
@@ -46,9 +55,7 @@ module.exports = {
 //     this.hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, 'sha512').toString('hex');
 // };
 
-// /**
-//  * Check if entered password is correct
-//  */
+
 // UserSchema.methods.validPassword = (password) => {
 //     var hash = crypto.pbkdf2Sync(password, this.salt, 1000, 64, 'sha512').toString('hex');
 //     return this.hash === hash;
