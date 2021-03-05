@@ -12,7 +12,7 @@ const auditorRoleId = 1;
 // GET /tenants - Get list of all tenants
 router.get('/tenants', (req, res) => {
     let getTenantsQuery = sql.select().from('Users')
-        .where({RoleId: tenantRoleId}).toParams();
+        .where({RoleId: tenantRoleId}).orderBy('UserId').toParams();
     pool.query(getTenantsQuery.text, getTenantsQuery.values, (err, results) => {
         if (err) return res.status(400).json(err);
         res.status(200).send(results.rows);
@@ -22,7 +22,7 @@ router.get('/tenants', (req, res) => {
 // GET /auditors - Get list of all auditors
 router.get('/auditors', (req, res) => {
     let getAuditorsQuery = sql.select().from('Users')
-        .where({RoleId: auditorRoleId}).toParams();
+        .where({RoleId: auditorRoleId}).orderBy('UserId').toParams();
     pool.query(getAuditorsQuery.text, getAuditorsQuery.values, (err, results) => {
         if (err) return res.status(400).json(err);
         res.status(200).send(results.rows);
@@ -31,7 +31,7 @@ router.get('/auditors', (req, res) => {
 
 // GET /institutions - Get list of all institutions
 router.get('/institutions', (req, res) => {
-    let getInstitutionsQuery = sql.select().from('Institutions').toParams();
+    let getInstitutionsQuery = sql.select().from('Institutions').orderBy('InstitutionId').toParams();
     pool.query(getInstitutionsQuery.text, getInstitutionsQuery.values, (err, results) => {
         if (err) {
             return res.status(400).send({
@@ -98,7 +98,7 @@ router.put('/tenants/register', (req, res) => {
 });
 
 
-// POST /auditors/register - Register auditor
+// POST /auditors/register - Create auditor
 router.post('/auditors/create', (req, res) => {
     // Get institution id
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
@@ -187,7 +187,18 @@ router.post('/tenants/create', (req, res) => {
 
 });
 
-// DELETE /tenants/delete - Delete tenant
 
+// DELETE /tenants/delete - Delete tenant
+router.delete('/tenants/delete', (req, res) => {
+    let deleteQuery = sql.delete('Users')
+        .where({Email: req.body.email}).toParams();
+
+    pool.query(deleteQuery.text, deleteQuery.values, (err, results) => {
+        if (err) return res.status(400).json(err);
+        return res.send({
+            message: "Tenant deleted"
+        });
+    });
+});
 
 module.exports = router;
