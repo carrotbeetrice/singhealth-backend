@@ -5,22 +5,34 @@ const sql = require('sql-bricks-postgres');
 const _ = require('underscore');
 const pool = db.getPool();
 
+// TODO: Find out how to not hardcode the user roles
+const tenantRoleId = 2;
+const auditorRoleId = 1;
+
 // GET /tenants - Get list of all tenants
 router.get('/tenants', (req, res) => {
     let getTenantsQuery = sql.select().from('Users')
-        .where({RoleId: 2}).toParams();
+        .where({RoleId: tenantRoleId}).toParams();
     pool.query(getTenantsQuery.text, getTenantsQuery.values, (err, results) => {
-        if (err) throw err;
+        if (err) return res.status(400).json(err);
         res.status(200).send(results.rows);
     });
 });
 
 // GET /auditors - Get list of all auditors
+router.get('/auditors', (req, res) => {
+    let getAuditorsQuery = sql.select().from('Users')
+        .where({RoleId: auditorRoleId}).toParams();
+    pool.query(getAuditorsQuery.text, getAuditorsQuery.values, (err, results) => {
+        if (err) return res.status(400).json(err);
+        res.status(200).send(results.rows);
+    });
+});
 
 // GET /institutions - Get list of all institutions
 router.get('/institutions', (req, res) => {
-    const queryVals = sql.select().from('Institutions').toParams();
-    pool.query(queryVals.text, queryVals.values, (err, results) => {
+    let getInstitutionsQuery = sql.select().from('Institutions').toParams();
+    pool.query(getInstitutionsQuery.text, getInstitutionsQuery.values, (err, results) => {
         if (err) {
             return res.status(400).send({
                 message: "GET /institutions failed"
@@ -30,8 +42,9 @@ router.get('/institutions', (req, res) => {
     });
 });
 
-// GET /tenants/login - Login tenant
-router.get('/tenants/login', (req, res) => {
+// GET /login - Login user
+// TODO: Figure out how to implement the hash function properly
+router.get('/login', (req, res) => {
     var loginUser = new User(
         null,
         req.body.email,
@@ -40,22 +53,20 @@ router.get('/tenants/login', (req, res) => {
         null
     );
 
+    console.log(loginUser.hash);
+
     let loginQuery = sql.select().from('Users')
-        .where({
-            Email: loginUser.email
-        }).toParams();
+        .where({Email: loginUser.email, Hash: loginUser.hash}).toParams();
 
     pool.query(loginQuery.text, loginQuery.values, (err, results) => {
-        if (err) throw err;
+        if (err) return res.status(400).json(err);
         
         if (results.rows === null) {
             return res.status(400).send({
-                message: "Tenant not found"
+                message: "User not found"
             });
         } else if (loginUser.validPassword(req.body.password)) {
-            return res.status(201).send({
-                message: "Tenant logged in"
-            });
+            return res.status(201).send(results.rows[0]);
         } else {
             return res.status(400).send({
                 message: "Wrong password"
@@ -64,9 +75,6 @@ router.get('/tenants/login', (req, res) => {
 
     });
 });
-
-
-// POST /auditors/login - Login auditor
 
 
 // PUT /tenants/register - Register tenant
@@ -83,30 +91,72 @@ router.put('/tenants/register', (req, res) => {
         .where({Email: toRegister.email}).returning('*').toParams();
 
     pool.query(registerQuery.text, registerQuery.values, (err, results) => {
-        if (err) throw err;
+        if (err) return res.status(400).json(err);
         res.send(results.rows);
     });
 
 });
 
+
 // POST /auditors/register - Register auditor
+router.post('/auditors/create', (req, res) => {
+    // Get institution id
+    let getIdQuery = sql.select('InstitutionId').from('Institutions')
+    .where({Name: req.body.institution}).toParams();
+
+    pool.query(getIdQuery.text, getIdQuery.values, (err, results) => {
+        if (err) return res.status(400).json(err);
+
+        var toRegister = new User (
+            req.body.name,
+            req.body.email,
+            req.body.password,
+            auditorRoleId,
+            results.rows[0].InstitutionId
+        );
+
+        var tableInsert = {
+            Name: toRegister.name,
+            Hash: toRegister.hash,
+            Email: toRegister.email,
+            RoleId: toRegister.role,
+            InstitutionId: toRegister.institution
+        };
+    
+        const insertQuery = sql.insert('Users', _.keys(tableInsert))
+            .select().from(sql.values(tableInsert).as('v').columns().types())
+            .where(sql.not(sql.exists(
+                sql.select('Email').from('Users')
+                .where({'Email': req.body.email})))).toParams();
+
+        pool.query(insertQuery.text, insertQuery.values, (err, results) => {
+            if (err) {
+                throw err;
+            } else {
+                return res.status(201).send({
+                    message: "Auditor creation successful"
+                })
+            }
+        });
+    });
+
+});
 
 
 // POST /tenants/create - Create new tenant (auditor privilege?)
 router.post('/tenants/create', (req, res) => {
     // Get institution id
-
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
         .where({Name: req.body.institution}).toParams();
 
     pool.query(getIdQuery.text, getIdQuery.values, (err, results) => {
-        if (err) throw err;
+        if (err) return res.status(400).json(err);
 
         var newTenant = new User(
             req.body.name, // name
             req.body.email, // email
             null, // password; blank until user registration
-            2, // role 
+            tenantRoleId, // role 
             results.rows[0].InstitutionId // institution
         );
     
