@@ -1,13 +1,14 @@
 let router = require('express').Router();
-let User = require('../models/userModel.js');
 const db = require('../pgpool');
 const sql = require('sql-bricks-postgres');
 const _ = require('underscore');
+const bcrypt = require('bcrypt');
 const pool = db.getPool();
 
 // TODO: Find out how to not hardcode the user roles
 const tenantRoleId = 2;
 const auditorRoleId = 1;
+const saltRounds = 10;
 
 // GET /tenants - Get list of all tenants
 router.get('/tenants', (req, res) => {
@@ -19,6 +20,7 @@ router.get('/tenants', (req, res) => {
     });
 });
 
+
 // GET /auditors - Get list of all auditors
 router.get('/auditors', (req, res) => {
     let getAuditorsQuery = sql.select().from('Users')
@@ -28,6 +30,7 @@ router.get('/auditors', (req, res) => {
         res.status(200).send(results.rows);
     });
 });
+
 
 // GET /institutions - Get list of all institutions
 router.get('/institutions', (req, res) => {
@@ -42,21 +45,11 @@ router.get('/institutions', (req, res) => {
     });
 });
 
+
 // GET /login - Login user
-// TODO: Figure out how to implement the hash function properly
 router.get('/login', (req, res) => {
-    var loginUser = new User(
-        null,
-        req.body.email,
-        req.body.password,
-        null,
-        null
-    );
-
-    console.log(loginUser.hash);
-
     let loginQuery = sql.select().from('Users')
-        .where({Email: loginUser.email, Hash: loginUser.hash}).toParams();
+        .where({Email: req.body.email}).toParams();
 
     pool.query(loginQuery.text, loginQuery.values, (err, results) => {
         if (err) return res.status(400).json(err);
@@ -65,36 +58,26 @@ router.get('/login', (req, res) => {
             return res.status(400).send({
                 message: "User not found"
             });
-        } else if (loginUser.validPassword(req.body.password)) {
-            return res.status(201).send(results.rows[0]);
         } else {
-            return res.status(400).send({
-                message: "Wrong password"
+            var hash = results.rows[0].Hash;
+
+            bcrypt.compare(req.body.password, hash, (err, results) => {
+                if (err) return res.status(400).send(err);
+
+                if (results) {
+                    return res.status(201).send({
+                        message: "Login success"
+                    });
+                } else {
+                    return res.status(403).send({
+                        message: "Wrong password"
+                    });
+                }
             });
+
         }
 
     });
-});
-
-
-// PUT /tenants/register - Register tenant
-router.put('/tenants/register', (req, res) => {
-    var toRegister = new User(
-        null,
-        req.body.email,
-        req.body.password,
-        null,
-        null
-    );
-
-    let registerQuery = sql.update('Users', {Hash: toRegister.hash})
-        .where({Email: toRegister.email}).returning('*').toParams();
-
-    pool.query(registerQuery.text, registerQuery.values, (err, results) => {
-        if (err) return res.status(400).json(err);
-        res.send(results.rows);
-    });
-
 });
 
 
@@ -104,46 +87,45 @@ router.post('/auditors/create', (req, res) => {
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
     .where({Name: req.body.institution}).toParams();
 
-    pool.query(getIdQuery.text, getIdQuery.values, (err, results) => {
+    pool.query(getIdQuery.text, getIdQuery.values, (err, result) => {
         if (err) return res.status(400).json(err);
 
-        var toRegister = new User (
-            req.body.name,
-            req.body.email,
-            req.body.password,
-            auditorRoleId,
-            results.rows[0].InstitutionId
-        );
+        bcrypt.hash(req.body.password, saltRounds, (err, hash) => {
+            if (err) return res.status(400).send(err);
 
-        var tableInsert = {
-            Name: toRegister.name,
-            Hash: toRegister.hash,
-            Email: toRegister.email,
-            RoleId: toRegister.role,
-            InstitutionId: toRegister.institution
-        };
+            var tableInsert = {
+                Name: req.body.name,
+                Hash: hash,
+                Email: req.body.email,
+                RoleId: auditorRoleId,
+                InstitutionId: result.rows[0].InstitutionId
+            };
+        
+            const insertQuery = sql.insert('Users', _.keys(tableInsert))
+                .select().from(sql.values(tableInsert).as('v').columns().types())
+                .where(sql.not(sql.exists(
+                    sql.select('Email').from('Users')
+                    .where({'Email': req.body.email})))).toParams();
     
-        const insertQuery = sql.insert('Users', _.keys(tableInsert))
-            .select().from(sql.values(tableInsert).as('v').columns().types())
-            .where(sql.not(sql.exists(
-                sql.select('Email').from('Users')
-                .where({'Email': req.body.email})))).toParams();
+            pool.query(insertQuery.text, insertQuery.values, (err, results) => {
+                if (err) {
+                    throw err;
+                } else {
+                    return res.status(201).send({
+                        message: "Auditor creation successful",
+                        user: results.rows[0]
+                    })
+                }
+            });
 
-        pool.query(insertQuery.text, insertQuery.values, (err, results) => {
-            if (err) {
-                throw err;
-            } else {
-                return res.status(201).send({
-                    message: "Auditor creation successful"
-                })
-            }
         });
+
     });
 
 });
 
 
-// POST /tenants/create - Create new tenant (auditor privilege?)
+// POST /tenants/create - Create new tenant - auditor privilege!!!
 router.post('/tenants/create', (req, res) => {
     // Get institution id
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
@@ -152,37 +134,36 @@ router.post('/tenants/create', (req, res) => {
     pool.query(getIdQuery.text, getIdQuery.values, (err, results) => {
         if (err) return res.status(400).json(err);
 
-        var newTenant = new User(
-            req.body.name, // name
-            req.body.email, // email
-            null, // password; blank until user registration
-            tenantRoleId, // role 
-            results.rows[0].InstitutionId // institution
-        );
+        bcrypt.hash(req.body.password, saltRounds, (err, hash) => {
+            if (err) return res.status(400).send(err);
+
+            var tableInsert = {
+                Name: req.body.name,
+                Hash: hash,
+                Email: req.body.email,
+                RoleId: tenantRoleId,
+                InstitutionId: results.rows[0].InstitutionId
+            };
+        
+            const insertQuery = sql.insert('Users', _.keys(tableInsert))
+                .select().from(sql.values(tableInsert).as('v').columns().types())
+                .where(sql.not(sql.exists(
+                    sql.select('Email').from('Users')
+                    .where({'Email': req.body.email})))).toParams();
     
-        var tableInsert = {
-            Name: newTenant.name,
-            Hash: '',
-            Email: newTenant.email,
-            RoleId: newTenant.role,
-            InstitutionId: newTenant.institution
-        };
-    
-        const insertQuery = sql.insert('Users', _.keys(tableInsert))
-            .select().from(sql.values(tableInsert).as('v').columns().types())
-            .where(sql.not(sql.exists(
-                sql.select('Email').from('Users')
-                .where({'Email': req.body.email})))).toParams();
-    
-        pool.query(insertQuery.text, insertQuery.values, (err, results) => {
-            if (err) {
-                throw err;
-            } else {
-                return res.status(201).send({
-                    message: "Tenant creation successful"
-                })
-            }
+            pool.query(insertQuery.text, insertQuery.values, (err, results) => {
+                if (err) {
+                    throw err;
+                } else {
+                    return res.status(201).send({
+                        message: "Tenant creation successful",
+                        user: results.rows[0]
+                    })
+                }
+            });
+
         });
+
     });
 
 });
@@ -200,5 +181,6 @@ router.delete('/tenants/delete', (req, res) => {
         });
     });
 });
+
 
 module.exports = router;

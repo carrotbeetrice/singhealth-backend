@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser')
 const app = express();
 const userRoutes = require('./routes/userRoutes');
-const userDb = require('./models/userModel');
+// const userDb = require('./models/userModel');
 
 /**
  *  Middlewares
