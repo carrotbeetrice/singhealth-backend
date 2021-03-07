@@ -1,5 +1,4 @@
 const express = require('express');
-const bodyParser = require('body-parser')
 const app = express();
 const userRoutes = require('./routes/userRoutes');
 // const userDb = require('./models/userModel');
@@ -7,8 +6,8 @@ const userRoutes = require('./routes/userRoutes');
 /**
  *  Middlewares
  */
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(bodyParser.json());
+app.use(express.urlencoded({extended: true}));
+app.use(express.json());
 
 // Use API routes
 app.use('/users', userRoutes);
