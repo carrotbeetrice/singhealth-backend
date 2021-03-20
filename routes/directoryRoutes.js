@@ -9,18 +9,7 @@ const tenantRoleId = 2;
 
 // GET /outlets - Get all retail outlets
 router.get('/outlets', (req, res) => {
-    let getOutletsQuery = sql.select([
-            'OutletId', 
-            'OutletName', 
-            'UserName', 
-            'InstitutionName', 
-            'UnitNumber', 
-            'to_char("TenancyStart", \'YYYY-MM-DD\') as "TenancyStart"', 
-            'to_char("TenancyEnd", \'YYYY-MM-DD\') as "TenancyEnd"'])
-        .from('RetailOutlets')
-        .join('Users').on('Users.UserId', 'RetailOutlets.TenantId')
-        .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
-        .toParams();
+    let getOutletsQuery = sql.select().from('get_retail_outlets()').toParams();
 
     pool.query(getOutletsQuery.text, getOutletsQuery.values, (err, results) => {
         if (err) {
