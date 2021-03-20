@@ -12,23 +12,13 @@ const saltRounds = 10;
 
 // GET /tenants - Get list of all tenants
 router.get('/tenants', (req, res) => {
-    let getTenantsQuery = sql.select().from('Users')
-        .where({RoleId: tenantRoleId}).orderBy('UserId').toParams();
-    pool.query(getTenantsQuery.text, getTenantsQuery.values, (err, results) => {
-        if (err) return res.status(400).json(err);
-        res.status(200).send(results.rows);
-    });
+    userQueryByRole(tenantRoleId, req, res);
 });
 
 
 // GET /auditors - Get list of all auditors
 router.get('/auditors', (req, res) => {
-    let getAuditorsQuery = sql.select().from('Users')
-        .where({RoleId: auditorRoleId}).orderBy('UserId').toParams();
-    pool.query(getAuditorsQuery.text, getAuditorsQuery.values, (err, results) => {
-        if (err) return res.status(400).json(err);
-        res.status(200).send(results.rows);
-    });
+    userQueryByRole(auditorRoleId, req, res);
 });
 
 
@@ -82,6 +72,7 @@ router.get('/login', (req, res) => {
 
 
 // POST /auditors/register - Create auditor
+// DEVELOPMENT ONLY
 router.post('/auditors/create', (req, res) => {
     // Get institution id
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
@@ -125,7 +116,7 @@ router.post('/auditors/create', (req, res) => {
 });
 
 
-// POST /tenants/create - Create new tenant - auditor privilege!!!
+// POST /tenants/create - Create new tenant
 router.post('/tenants/create', (req, res) => {
     // Get institution id
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
@@ -181,6 +172,21 @@ router.delete('/tenants/delete', (req, res) => {
         });
     });
 });
+
+
+/*
+    Query functions
+*/
+
+const userQueryByRole = (role, req, res) => {
+    let getUsersQuery = sql.select(['UserId', 'UserName', 'Email', 'InstitutionName']).from('Users')
+        .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
+        .where({RoleId: role}).orderBy('UserId').toParams();
+    pool.query(getUsersQuery.text, getUsersQuery.values, (err, results) => {
+        if (err) return res.status(400).json(err);
+        res.status(200).send(results.rows);
+    });
+};
 
 
 module.exports = router;
