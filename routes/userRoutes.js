@@ -36,48 +36,6 @@ router.get('/institutions', (req, res) => {
 });
 
 
-// GET /login - Login user
-router.get('/login', (req, res) => {
-    let loginQuery = sql.select(['UserId', 'UserName', 'Email', 'Hash', 'InstitutionName', 'RoleId']).from('Users')
-        .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
-        .where({Email: req.body.email}).toParams();
-
-    pool.query(loginQuery.text, loginQuery.values, (err, results) => {
-        if (err) throw err;
-
-        const userInfo = results.rows[0];
-        
-        if (results.rows === null) {
-            return res.status(400).send({
-                message: "User not found"
-            });
-        } else {
-            var hash = userInfo.Hash;
-
-            bcrypt.compare(req.body.password, hash, (err, results) => {
-                if (err) throw err;
-
-                if (results) {
-                    return res.status(201).send({
-                        id: userInfo.UserId,
-                        name: userInfo.UserName,
-                        email: userInfo.Email,
-                        institution: userInfo.InstitutionName,
-                        role: userInfo.RoleId
-                    });
-                } else {
-                    return res.status(403).send({
-                        message: "Wrong password"
-                    });
-                }
-            });
-
-        }
-
-    });
-});
-
-
 // POST /auditors/register - Create auditor
 // DEVELOPMENT ONLY
 router.post('/auditors/create', (req, res) => {
