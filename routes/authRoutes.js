@@ -55,11 +55,11 @@ router.get('/', (req, res) => {
                     authResults.user = user;
 
                     // Create token
-                    let payload = {user: user.id};
-                    let options = {expiresIn: 86400 }; // expires in 24 hours
-                    let secret = config.secret;
-                    let token = jwt.sign(payload, secret, options);
-                    authResults.token = token;
+                    // let payload = {user: user.id};
+                    // let options = {expiresIn: 86400 }; // expires in 24 hours
+                    // let secret = config.secret;
+                    // let token = jwt.sign(payload, secret, options);
+                    // authResults.token = token;
 
                     return res.status(status).send(authResults);
                 } else {
