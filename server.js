@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const userRoutes = require('./routes/userRoutes');
+const directoryRoutes = require('./routes/directoryRoutes');
 // const userDb = require('./models/userModel');
 
 /**
@@ -11,6 +12,7 @@ app.use(express.json());
 
 // Use API routes
 app.use('/users', userRoutes);
+app.use('/directory', directoryRoutes);
 
 let port = process.env.PORT || 3000;
 

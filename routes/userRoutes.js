@@ -12,23 +12,13 @@ const saltRounds = 10;
 
 // GET /tenants - Get list of all tenants
 router.get('/tenants', (req, res) => {
-    let getTenantsQuery = sql.select().from('Users')
-        .where({RoleId: tenantRoleId}).orderBy('UserId').toParams();
-    pool.query(getTenantsQuery.text, getTenantsQuery.values, (err, results) => {
-        if (err) return res.status(400).json(err);
-        res.status(200).send(results.rows);
-    });
+    userQueryByRole(tenantRoleId, req, res);
 });
 
 
 // GET /auditors - Get list of all auditors
 router.get('/auditors', (req, res) => {
-    let getAuditorsQuery = sql.select().from('Users')
-        .where({RoleId: auditorRoleId}).orderBy('UserId').toParams();
-    pool.query(getAuditorsQuery.text, getAuditorsQuery.values, (err, results) => {
-        if (err) return res.status(400).json(err);
-        res.status(200).send(results.rows);
-    });
+    userQueryByRole(auditorRoleId, req, res);
 });
 
 
@@ -48,25 +38,32 @@ router.get('/institutions', (req, res) => {
 
 // GET /login - Login user
 router.get('/login', (req, res) => {
-    let loginQuery = sql.select().from('Users')
+    let loginQuery = sql.select(['UserId', 'UserName', 'Email', 'Hash', 'InstitutionName', 'RoleId']).from('Users')
+        .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
         .where({Email: req.body.email}).toParams();
 
     pool.query(loginQuery.text, loginQuery.values, (err, results) => {
-        if (err) return res.status(400).json(err);
+        if (err) throw err;
+
+        const userInfo = results.rows[0];
         
         if (results.rows === null) {
             return res.status(400).send({
                 message: "User not found"
             });
         } else {
-            var hash = results.rows[0].Hash;
+            var hash = userInfo.Hash;
 
             bcrypt.compare(req.body.password, hash, (err, results) => {
-                if (err) return res.status(400).send(err);
+                if (err) throw err;
 
                 if (results) {
                     return res.status(201).send({
-                        message: "Login success"
+                        id: userInfo.UserId,
+                        name: userInfo.UserName,
+                        email: userInfo.Email,
+                        institution: userInfo.InstitutionName,
+                        role: userInfo.RoleId
                     });
                 } else {
                     return res.status(403).send({
@@ -82,6 +79,7 @@ router.get('/login', (req, res) => {
 
 
 // POST /auditors/register - Create auditor
+// DEVELOPMENT ONLY
 router.post('/auditors/create', (req, res) => {
     // Get institution id
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
@@ -125,11 +123,11 @@ router.post('/auditors/create', (req, res) => {
 });
 
 
-// POST /tenants/create - Create new tenant - auditor privilege!!!
+// POST /tenants/create - Create new tenant
 router.post('/tenants/create', (req, res) => {
     // Get institution id
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
-        .where({Name: req.body.institution}).toParams();
+        .where({InstitutionName: req.body.institution}).toParams();
 
     pool.query(getIdQuery.text, getIdQuery.values, (err, results) => {
         if (err) return res.status(400).json(err);
@@ -138,7 +136,7 @@ router.post('/tenants/create', (req, res) => {
             if (err) return res.status(400).send(err);
 
             var tableInsert = {
-                Name: req.body.name,
+                UserName: req.body.name,
                 Hash: hash,
                 Email: req.body.email,
                 RoleId: tenantRoleId,
@@ -181,6 +179,21 @@ router.delete('/tenants/delete', (req, res) => {
         });
     });
 });
+
+
+/*
+    Query functions
+*/
+
+const userQueryByRole = (role, req, res) => {
+    let getUsersQuery = sql.select(['UserId', 'UserName', 'Email', 'InstitutionName']).from('Users')
+        .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
+        .where({RoleId: role}).orderBy('UserId').toParams();
+    pool.query(getUsersQuery.text, getUsersQuery.values, (err, results) => {
+        if (err) return res.status(400).json(err);
+        res.status(200).send(results.rows);
+    });
+};
 
 
 module.exports = router;
