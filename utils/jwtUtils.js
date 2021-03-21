@@ -30,5 +30,11 @@ module.exports = {
             };
             res.status(401).send(result);
         }
+    },
+    generateToken: (userID) => {
+        let payload = {user: userID};
+        let options = {expiresIn: 86400 }; // expires in 24 hours
+        let secret = config.secret;
+        return jwt.sign(payload, secret, options);
     }
 };

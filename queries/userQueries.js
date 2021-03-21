@@ -3,7 +3,7 @@ const sql = require('sql-bricks-postgres');
 const _ = require('underscore');
 const bcrypt = require('bcrypt');
 const pool = db.getPool();
-const validateToken = require('../utils/utils').validateToken;
+// const validateToken = require('../utils/jwtUtils').validateToken;
 
 const tenantRoleId = 2;
 const auditorRoleId = 1;
@@ -32,7 +32,7 @@ const getInstitutions = (req, res) => {
 const createAuditor = (req, res) => {
     // Get institution id
     let getIdQuery = sql.select('InstitutionId').from('Institutions')
-    .where({Name: req.body.institution}).toParams();
+    .where({InstitutionName: req.body.institution}).toParams();
 
     pool.query(getIdQuery.text, getIdQuery.values, (err, result) => {
         if (err) return res.status(400).json(err);
@@ -41,7 +41,7 @@ const createAuditor = (req, res) => {
             if (err) return res.status(400).send(err);
 
             var tableInsert = {
-                Name: req.body.name,
+                UserName: req.body.name,
                 Hash: hash,
                 Email: req.body.email,
                 RoleId: auditorRoleId,
@@ -113,6 +113,18 @@ const createTenant = (req, res) => {
 
 };
 
+const deleteTenant = (req, res) => {
+    let deleteQuery = sql.delete('Users')
+        .where({Email: req.body.email}).toParams();
+
+    pool.query(deleteQuery.text, deleteQuery.values, (err, results) => {
+        if (err) return res.status(400).json(err);
+        return res.send({
+            message: "Tenant deleted"
+        });
+    });
+};
+
 /*
     Query functions
 */
@@ -127,17 +139,7 @@ const userQueryByRole = (role, req, res) => {
     });
 };
 
-const deleteTenant = (req, res) => {
-    let deleteQuery = sql.delete('Users')
-        .where({Email: req.body.email}).toParams();
 
-    pool.query(deleteQuery.text, deleteQuery.values, (err, results) => {
-        if (err) return res.status(400).json(err);
-        return res.send({
-            message: "Tenant deleted"
-        });
-    });
-};
 
 module.exports = {
     getTenants,

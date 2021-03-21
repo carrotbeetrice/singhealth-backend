@@ -3,9 +3,10 @@ const db = require('../pgpool');
 const sql = require('sql-bricks-postgres');
 const _ = require('underscore');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const config = require('../config');
+const generateToken = require('../utils/jwtUtils').generateToken;
 const pool = db.getPool();
+
+const auditorRoleId = 1;
 
 // GET /auth - Authenticate user
 router.get('/', (req, res) => {
@@ -54,12 +55,10 @@ router.get('/', (req, res) => {
                     };
                     authResults.user = user;
 
-                    // Create token
-                    // let payload = {user: user.id};
-                    // let options = {expiresIn: 86400 }; // expires in 24 hours
-                    // let secret = config.secret;
-                    // let token = jwt.sign(payload, secret, options);
-                    // authResults.token = token;
+                    // Create token if user is an auditor
+                    if (user.role == auditorRoleId) {
+                        authResults.token = generateToken(user.id);
+                    }
 
                     return res.status(status).send(authResults);
                 } else {
