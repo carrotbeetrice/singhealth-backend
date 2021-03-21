@@ -12,4 +12,4 @@
 * DELETE /users/tenants/delete - Delete tenant
 ### Directory Endpoints
 * GET /directory/outlets - Get all retail outlets
-* POST /directory/outlets/add - Add retail outlet (DEVELOPMENT ONLY)
+* POST /directory/outlets/add - Add retail outlet
