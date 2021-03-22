@@ -2,10 +2,10 @@
 
 ## Endpoints (TBC)
 ### Authentication Endpoint
-* GET /auth - Authenticate user
+* POST /auth - Authenticate user
 ### User Endpoints
 * GET /users/tenants - Get all tenants
-* GET /users/auditors - Get all auditors
+* GET /users/auditors - Get all auditors (DEVELOPMENT ONLY)
 * GET /users/institutions - Get list of all institutions
 * POST /users/tenants/create - Create tenant
 * POST /users/auditors/create - Create auditor (DEVELOPMENT ONLY)
