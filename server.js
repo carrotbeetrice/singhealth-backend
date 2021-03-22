@@ -15,7 +15,7 @@ app.use('/users', userRoutes);
 app.use('/directory', directoryRoutes);
 app.use('/auth', authRoutes);
 
-let port = process.env.PORT || 3000;
+let port = process.env.PORT;
 
 // Launch app
 app.listen(port, () => {

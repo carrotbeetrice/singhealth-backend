@@ -9,9 +9,11 @@ const pool = db.getPool();
 const auditorRoleId = 1;
 
 // GET /auth - Authenticate user
-router.get('/', (req, res) => {
+router.post('/', (req, res) => {
     let authResults = {};
     let status = 200;
+
+    console.log(req.body);
 
     let loginQuery = sql.select(['UserId', 'UserName', 'Email', 'Hash', 'InstitutionName', 'RoleId']).from('Users')
         .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
