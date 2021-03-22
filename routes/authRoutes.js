@@ -13,7 +13,7 @@ router.post('/', (req, res) => {
     let authResults = {};
     let status = 200;
 
-    console.log(req.body);
+    // console.log(req.body);
 
     let loginQuery = sql.select(['UserId', 'UserName', 'Email', 'Hash', 'InstitutionName', 'RoleId']).from('Users')
         .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
@@ -61,6 +61,8 @@ router.post('/', (req, res) => {
                     if (user.role == auditorRoleId) {
                         authResults.token = generateToken(user.id);
                     }
+
+                    // console.log(authResults);
 
                     return res.status(status).send(authResults);
                 } else {

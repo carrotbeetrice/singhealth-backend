@@ -1,5 +1,7 @@
 const express = require('express');
 const app = express();
+const cors = require('cors');
+
 const userRoutes = require('./routes/userRoutes');
 const directoryRoutes = require('./routes/directoryRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -9,6 +11,7 @@ const authRoutes = require('./routes/authRoutes');
  */
 app.use(express.urlencoded({extended: true}));
 app.use(express.json());
+app.use(cors());
 
 // Use API routes
 app.use('/users', userRoutes);
