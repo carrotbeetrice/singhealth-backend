@@ -135,7 +135,10 @@ const userQueryByRole = (role, req, res) => {
         .where({RoleId: role}).orderBy('UserId').toParams();
     pool.query(getUsersQuery.text, getUsersQuery.values, (err, results) => {
         if (err) return res.status(400).json(err);
-        res.status(200).send(results.rows);
+        res.status(200).send({
+            status: 200,
+            tenants: results.rows
+        });
     });
 };
 
