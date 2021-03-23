@@ -18,7 +18,7 @@ const getAuditors = (req, res) => {
 };
 
 const getInstitutions = (req, res) => {
-    let getInstitutionsQuery = sql.select().from('Institutions').orderBy('InstitutionId').toParams();
+    let getInstitutionsQuery = sql.select(['InstitutionId', 'InstitutionName']).from('Institutions').orderBy('InstitutionId').toParams();
     pool.query(getInstitutionsQuery.text, getInstitutionsQuery.values, (err, results) => {
         if (err) {
             return res.status(400).send({

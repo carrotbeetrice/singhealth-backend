@@ -7,7 +7,7 @@ const pool = db.getPool();
 const tenantRoleId = 2;
 
 const getAllOutlets = (req, res) => {
-    let getOutletsQuery = sql.select().from('get_retail_outlets()').toParams();
+    let getOutletsQuery = sql.select().from('getAllOutlets()').toParams();
 
     pool.query(getOutletsQuery.text, getOutletsQuery.values, (err, results) => {
         if (err) {
