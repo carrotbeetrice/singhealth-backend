@@ -25,9 +25,11 @@ const getAllOutlets = (req, res) => {
 };
 
 const addOutlet = (req, res) => {
+    console.log(req.body);
+
     // Check if tenant exists
     let checkTenantQuery = sql.select('UserId').from('Users')
-        .where({Email: req.body.tenant_email, RoleId: tenantRoleId}).toParams();
+        .where({Email: req.body.email, RoleId: tenantRoleId}).toParams();
 
     pool.query(checkTenantQuery.text, checkTenantQuery.values, (err, results) => {
         if (err) return res.status(400).send(err);
@@ -40,11 +42,11 @@ const addOutlet = (req, res) => {
             let tenantId = results.rows[0].UserId;
 
             const insertOutletQuery = sql(`INSERT INTO "RetailOutlets" ("OutletName", "TenantId", "UnitNumber", "TenancyStart", "TenancyEnd") VALUES (
-                    '${req.body.outlet_name}', 
+                    '${req.body.outletname}', 
                     ${tenantId}, 
-                    '${req.body.unit_number}',
-                    to_date('${req.body.tenancy_start}', 'YYYY-MM-DD'),
-                    to_date('${req.body.tenancy_end}', 'YYYY-MM-DD'));`)
+                    '${req.body.unitnumber}',
+                    to_date('${req.body.tenancystart}', 'YYYY/MM/DD'),
+                    to_date('${req.body.tenancyend}', 'YYYY/MM/DD'));`)
                 .toString();
     
             pool.query(insertOutletQuery, (err, results) => {
