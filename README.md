@@ -12,4 +12,6 @@
 * DELETE /users/tenants/delete - Delete tenant
 ### Directory Endpoints
 * GET /directory/outlets - Get all retail outlets
-* POST /directory/outlets/add - Add retail outlet
+* PUT /directory/outlets/add - Add retail outlet
+* POST /directory/outlets/update - Update retail outlet
+* DELETE /directory/outlets/delete - delete retail outlet

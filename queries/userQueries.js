@@ -18,6 +18,7 @@ const getAuditors = (req, res) => {
 };
 
 const getInstitutions = (req, res) => {
+    console.log("getInstitutions called");
     let getInstitutionsQuery = sql.select(['InstitutionId', 'InstitutionName']).from('Institutions').orderBy('InstitutionId').toParams();
     pool.query(getInstitutionsQuery.text, getInstitutionsQuery.values, (err, results) => {
         if (err) {
@@ -25,7 +26,10 @@ const getInstitutions = (req, res) => {
                 message: "GET /institutions failed"
             });
         }
-        return res.status(200).json(results.rows);
+        return res.status(200).json({
+            status: 200,
+            institutions: results.rows
+        });
     });
 };
 

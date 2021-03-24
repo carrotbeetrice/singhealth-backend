@@ -1,11 +1,14 @@
 let router = require('express').Router();
-const directoryQueires = require('../queries/directoryQueries');
+const directoryQueries = require('../queries/directoryQueries');
 
 // GET /outlets - Get all retail outlets
-router.get('/outlets', directoryQueires.getAllOutlets);
+router.get('/outlets', directoryQueries.getAllOutlets);
 
 // POST /outlets/add - Add retail outlet
-router.post('/outlets/add', directoryQueires.addOutlet);
+router.put('/outlets/add', directoryQueries.addOutlet);
 
+router.post('/outlets/update', directoryQueries.updateOutlet);
+
+router.delete('/outlets/delete', directoryQueries.deleteOutlet);
 
 module.exports = router;

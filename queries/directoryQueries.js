@@ -7,7 +7,7 @@ const pool = db.getPool();
 const tenantRoleId = 2;
 
 const getAllOutlets = (req, res) => {
-    let getOutletsQuery = sql.select().from('getAllOutlets()').toParams();
+    let getOutletsQuery = sql.select().from('getAllOutlets()').orderBy('outletid').toParams();
 
     pool.query(getOutletsQuery.text, getOutletsQuery.values, (err, results) => {
         if (err) {
@@ -17,6 +17,10 @@ const getAllOutlets = (req, res) => {
         }
 
         return res.status(200).send(results.rows);
+        // return res.status(200).send({
+        //     status: 200,
+        //     outlets: results.rows
+        // });
     });
 };
 
@@ -55,7 +59,56 @@ const addOutlet = (req, res) => {
     });
 };
 
+// TODO: Make the institution field non-editable in the frontend
+const updateOutlet = (req, res) => {
+    console.log(req.body);
+    let updateOutletQuery = sql.select().from(sql(`updateOutlet(
+        ${req.body.outletid},
+        '${req.body.outletname}',
+        '${req.body.unitnumber}',
+        '${req.body.email}',
+        '${req.body.tenancystart}',
+        '${req.body.tenancyend}'
+    )`)).toParams();
+    
+    pool.query(updateOutletQuery.text, updateOutletQuery.values, (err, result) => {
+        if (err) {
+            return res.status(500).send({
+                status: 500,
+                error: err
+            });
+        } else {
+            return res.status(200).send({
+                status: 200,
+                result: result.rows[0]
+            });
+        }
+    });
+};
+
+const deleteOutlet = (req, res) => {
+    let deleteOutletQuery = sql.delete('RetailOutlets').where({
+        OutletId: parseInt(req.body.outletid)
+    }).toParams();
+
+    pool.query(deleteOutletQuery.text, deleteOutletQuery.values, (err, results) => {
+        if (err) {
+            return res.status(500).send({
+                status: 500,
+                error: err
+            });
+        } else {
+            return res.status(200).send({
+                status: 200,
+                result: "Outlet successfully deleted"
+            });
+        }
+    });
+};
+
 module.exports = {
     getAllOutlets,
-    addOutlet
+    addOutlet,
+    updateOutlet,
+    deleteOutlet
 };
