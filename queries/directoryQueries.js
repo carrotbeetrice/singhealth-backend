@@ -25,7 +25,7 @@ const getAllOutlets = (req, res) => {
 };
 
 const addOutlet = (req, res) => {
-    console.log(req.body);
+    // console.log(req.body);
 
     // Check if tenant exists
     let checkTenantQuery = sql.select('UserId').from('Users')
@@ -41,19 +41,23 @@ const addOutlet = (req, res) => {
         } else {
             let tenantId = results.rows[0].UserId;
 
-            const insertOutletQuery = sql(`INSERT INTO "RetailOutlets" ("OutletName", "TenantId", "UnitNumber", "TenancyStart", "TenancyEnd") VALUES (
-                    '${req.body.outletname}', 
-                    ${tenantId}, 
-                    '${req.body.unitnumber}',
-                    to_date('${req.body.tenancystart}', 'YYYY/MM/DD'),
-                    to_date('${req.body.tenancyend}', 'YYYY/MM/DD'));`)
-                .toString();
+            const insertOutletQuery = sql.select().from(`addOutlet(
+                '${req.body.outletname}'::varchar, 
+                ${tenantId}, 
+                '${req.body.unitnumber}'::varchar,
+                '${req.body.institutionname}'::varchar,
+                '${req.body.tenancystart}',
+                '${req.body.tenancyend}'
+            );`)
+            .toParams();
+
+            // console.log(insertOutletQuery.text);
     
-            pool.query(insertOutletQuery, (err, results) => {
+            pool.query(insertOutletQuery.text, insertOutletQuery.values, (err, results) => {
                 if (err) throw err;
                 return res.status(201).send({
                     message: "Successfully added outlet",
-                    outlet: results.rows[0]
+                    outletId: results.rows[0]
                 });
             });
         }
@@ -61,14 +65,15 @@ const addOutlet = (req, res) => {
     });
 };
 
-// TODO: Make the institution field non-editable in the frontend
+
 const updateOutlet = (req, res) => {
-    console.log(req.body);
+    // console.log(req.body);
     let updateOutletQuery = sql.select().from(sql(`updateOutlet(
         ${req.body.outletid},
         '${req.body.outletname}',
         '${req.body.unitnumber}',
         '${req.body.email}',
+        '${req.body.institutionname}',
         '${req.body.tenancystart}',
         '${req.body.tenancyend}'
     )`)).toParams();

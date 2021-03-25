@@ -15,8 +15,8 @@ router.post('/', (req, res) => {
 
     // console.log(req.body);
 
-    let loginQuery = sql.select(['UserId', 'UserName', 'Email', 'Hash', 'InstitutionName', 'RoleId']).from('Users')
-        .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
+    let loginQuery = sql.select(['UserId', 'UserName', 'Email', 'Hash', 'RoleId']).from('Users')
+        // .join('Institutions').on('Users.InstitutionId', 'Institutions.InstitutionId')
         .where({Email: req.body.email}).toParams();
 
     pool.query(loginQuery.text, loginQuery.values, (err, results) => {
