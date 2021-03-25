@@ -67,13 +67,13 @@ const createAuditor = (req, res) => {
 };
 
 const createTenant = (req, res) => {
-    bcrypt.hash(req.body.password, saltRounds, (err, hash) => {
+    bcrypt.hash(req.body.Password, saltRounds, (err, hash) => {
         if (err) return res.status(400).send(err);
 
         var tableInsert = {
-            UserName: req.body.name,
+            UserName: req.body.UserName,
             Hash: hash,
-            Email: req.body.email,
+            Email: req.body.Email,
             RoleId: tenantRoleId
         };
     
@@ -81,7 +81,7 @@ const createTenant = (req, res) => {
             .select().from(sql.values(tableInsert).as('v').columns().types())
             .where(sql.not(sql.exists(
                 sql.select('Email').from('Users')
-                .where({'Email': req.body.email})))).toParams();
+                .where({'Email': req.body.Email})))).toParams();
 
         pool.query(insertQuery.text, insertQuery.values, (err, results) => {
             if (err) {
@@ -100,7 +100,7 @@ const createTenant = (req, res) => {
 
 const deleteTenant = (req, res) => {
     let deleteQuery = sql.delete('Users')
-        .where({Email: req.body.email}).toParams();
+        .where({UserId: req.body.UserId}).toParams();
 
     pool.query(deleteQuery.text, deleteQuery.values, (err, results) => {
         if (err) return res.status(400).json(err);
