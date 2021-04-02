@@ -47,42 +47,55 @@ const getAllOutlets = (req, res) => {
 };
 
 const addOutlet = (req, res) => {
-    // console.log(req.body);
-
     // Check if tenant exists
     let checkTenantQuery = sql.select('UserId').from('Users')
         .where({Email: req.body.email, RoleId: tenantRoleId}).toParams();
 
-    pool.query(checkTenantQuery.text, checkTenantQuery.values, (err, results) => {
-        if (err) return res.status(400).send(err);
-
-        if (results.rows.length === 0) {
-            return res.status(404).send({
-                message: "Tenant does not exist"
-            });
-        } else {
-            let tenantId = results.rows[0].UserId;
-
-            const insertOutletQuery = sql.select().from(`addOutlet(
-                '${req.body.outletname}'::varchar, 
-                ${tenantId}, 
-                '${req.body.unitnumber}'::varchar,
-                '${req.body.institutionname}'::varchar,
-                '${req.body.tenancystart}',
-                '${req.body.tenancyend}'
-            );`)
-            .toParams();
-
-            // console.log(insertOutletQuery.text);
-    
-            pool.query(insertOutletQuery.text, insertOutletQuery.values, (err, results) => {
-                if (err) throw err;
-                return res.status(201).send({
-                    message: "Successfully added outlet",
-                    outletId: results.rows[0]
-                });
+    pool.query(checkTenantQuery.text, checkTenantQuery.values, (err, tenantCheckResults) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send({
+                status: 500,
+                error: err
             });
         }
+
+
+        if (tenantCheckResults.rows.length === 0) {
+            return res.status(400).send({
+                status: 400,
+                error: "Tenant does not exist"
+            });
+        } 
+
+        let submittedTenantId = tenantCheckResults.rows[0].UserId;
+
+        let tableInsertValues = {
+            OutletName: req.body.outletname,
+            TenantId: submittedTenantId,
+            UnitNumber: req.body.unitnumber,
+            TenancyStart: formatDate(req.body.tenancystart),
+            TenancyEnd: formatDate(req.body.tenancyend),
+            InstitutionId: req.body.institutionid,
+            OutletType: parseInt(req.body.outlettypeid)
+        };
+
+        let insertOutletQuery = sql.insert('RetailOutlets', tableInsertValues).toParams();
+
+        pool.query(insertOutletQuery.text, insertOutletQuery.values, (err, insertQueryResults) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).send({
+                    status: 500,
+                    error: err
+                });
+            } else {
+                return res.status(200).send({
+                    status: 200,
+                    message: "All good bois"
+                });
+            }
+        });
 
     });
 };
@@ -98,12 +111,14 @@ const updateOutlet = (req, res) => {
     pool.query(checkTenantQuery.text, checkTenantQuery.values, (err, tenantCheckResults) => {
         if (err) {
             return res.status(500).send({
+                status: 500,
                 error: err
             });
         } 
 
         if (tenantCheckResults.rows.length === 0) {
             return res.status(400).send({
+                status: 400,
                 error: "Tenant does not exist"
             });
         }
@@ -129,14 +144,16 @@ const updateOutlet = (req, res) => {
             if (err) {
                 console.error(err);
                 return res.status(500).send({
+                    status: 500,
                     error: err
                 });
             } else {
                 return res.status(200).send({
+                    status: 200,
                     message: "All good bois"
                 });
             }
-        })
+        });
         
     });
 };
