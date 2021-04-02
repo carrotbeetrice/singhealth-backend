@@ -1,6 +1,8 @@
 let router = require('express').Router();
 const directoryQueries = require('../queries/directoryQueries');
 
+router.get('/outlets/types', directoryQueries.getOutletTypes);
+
 // GET /outlets - Get all retail outlets
 router.get('/outlets', directoryQueries.getAllOutlets);
 
