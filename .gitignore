@@ -1,3 +1,3 @@
 .env
-node_modules
-db_storedprocedures
+node_modules/
+db_storedprocedures/
