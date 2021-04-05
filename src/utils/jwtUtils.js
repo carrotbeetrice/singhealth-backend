@@ -13,7 +13,7 @@ module.exports = {
 
             try {
                 // Verify that token is not expired and was issued by us
-                result = jwt.verify(token, config.secret, options);
+                result = jwt.verify(token, config.SECRET, options);
                 req.decoded = result;
                 next();
             } catch (err) {
@@ -34,7 +34,7 @@ module.exports = {
     generateToken: (userID) => {
         let payload = {user: userID};
         let options = {expiresIn: 86400 }; // expires in 24 hours
-        let secret = config.secret;
+        let secret = config.SECRET;
         return jwt.sign(payload, secret, options);
     }
 };

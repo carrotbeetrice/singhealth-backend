@@ -15,3 +15,6 @@
 * PUT /directory/outlets/add - Add retail outlet
 * POST /directory/outlets/update - Update retail outlet
 * DELETE /directory/outlets/delete - delete retail outlet
+### Report Endpoints
+* POST /report/image/upload/test - Test image upload (DEVELOPMENT ONLY)
+* POST /report/image/get - Test image url get (DEVELOPMENT ONLY)
