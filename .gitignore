@@ -2,3 +2,4 @@
 node_modules/
 db_stuff/
 test_images/
+.DS_Store
