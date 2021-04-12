@@ -1,14 +1,30 @@
-const awsUpload = require("../aws/awsUpload");
+const awsUpload = require("../services/aws/awsUpload");
 const { v4: uuidv4 } = require("uuid");
 const fs = require("fs");
 const db = require("../pgpool");
 const sql = require("sql-bricks-postgres");
 const _ = require("underscore");
 const bcrypt = require("bcrypt");
+const excel = require('exceljs');
+const { report } = require("../routes/root");
 const pool = db.getPool();
+const checklist = require('../../help_me/checklist_format.json');
 
 //TODO: Add the rest of the queries for the reports
 //TODO: Add support for multiple image uploads
+
+const tenantReportColumns = [
+  {header: "Report Id", key: "reportid"},
+  {header: "Auditor Id", key: "auditorid"},
+  {header: "Auditor Name", key: "auditorname"},
+  {header: "Outlet Id", key: "outletid"},
+  {header: "Outlet Name", key: "outletname"},
+  {header: "Tenant Email", key: "tenantemail"},
+  {header: "Institution", key: "institution"},
+  {header: "Report Type", key: "checklisttype"},
+  {header: "Report Score", key: "checklistscore"},
+  {header: "Reported On", key: "reportedon"},
+];
 
 // Testing image upload!
 const uploadImage = async (req, res) => {
@@ -112,10 +128,71 @@ const getChecklistQuestions = (req, res) => {
   );
 };
 
+// Export tenant report
+const exportTenantReport = (req, res) => {
+  let reportId = parseInt(req.body.reportId);
+
+  const getFullReportQuery = sql.select().from(`getFullTenantReport(${reportId})`).toParams();
+
+  pool.query(getFullReportQuery.text, getFullReportQuery.values, (err, results) => {
+    if (err)  {
+      return res.status(500).send({
+        error: err
+      });
+    }
+
+    let reportData = results.rows[0];
+
+    let workbook = new excel.Workbook();
+    let reportInfoWorksheet = workbook.addWorksheet();
+    let reportContentsWorksheet = workbook.addWorksheet();
+
+    reportInfoWorksheet.columns = tenantReportColumns;
+
+    let rowValues = [];
+    rowValues.push(reportData);
+
+    reportInfoWorksheet.addRows(rowValues);
+
+    reportContentsWorksheet.columns = [
+      {header: "Question", key: "question", width: 50},
+      {header: "Answer", key: "answer"},
+    ];
+
+    checklist.forEach((category) => {
+      reportContentsWorksheet.addRow({question: category.category}, "bold");
+      category.subcategories.forEach((subcategory) => {
+        reportContentsWorksheet.addRow({question: subcategory.subcategory});
+        subcategory.questions.forEach((question) => {
+          reportContentsWorksheet.addRow(question);
+        });
+      });
+    });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=" + `${reportData.reportid}_${reportData.reportedon}_${Date.now()}.xlsx`
+    );
+
+    return workbook.xlsx.write(res)
+    .then(() =>  {
+      res.status(200).end();
+    })
+    .catch(() => res.sendStatus(500));
+
+  });
+
+};
+
 module.exports = {
   uploadImage,
   getImageUrl,
   getImage,
   addDefaultQuestion,
   getChecklistQuestions,
+  exportTenantReport,
 };

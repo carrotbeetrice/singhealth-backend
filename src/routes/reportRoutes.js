@@ -13,5 +13,6 @@ router.post('/questions/get', reportQueries.getChecklistQuestions);
 
 // DEVELOPMENT ONLY
 router.post('/questions/add', reportQueries.addDefaultQuestion);
+router.post('/tenant', reportQueries.exportTenantReport);
 
 module.exports = router;
