@@ -8,6 +8,7 @@ const reportQueries  = require('../queries/reportQueries');
 router.post('/image/upload/test', upload.single('image'), reportQueries.uploadImage);
 
 router.post('/image/get', reportQueries.getImage);
+router.post('/image/url', reportQueries.getImageUrl);
 
 router.post('/questions/get', reportQueries.getChecklistQuestions);
 
