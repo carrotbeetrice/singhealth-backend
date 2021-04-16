@@ -16,6 +16,27 @@ const uploadToS3 = async (key, buffer, mimetype) => {
   });
 };
 
+const multipleUpload = (imageFolder, images) => {
+  let promiseArray = [];
+
+  images.map((item) => {
+    let promise = new Promise((resolve) => {
+      s3.putObject(
+        {
+          Bucket: awsConfig.BUCKET_NAME,
+          ContentType: item.mimetype,
+          Key: `${imageFolder}/${item.originalname}`,
+          Body: item.buffer,
+        },
+        () => resolve()
+      );
+    });
+    promiseArray.push(promise);
+  });
+
+  return promiseArray;
+};
+
 const getSignedUrl = (key, expires = 3600) => {
   return new Promise((resolve, reject) => {
     s3.getSignedUrl(
@@ -34,10 +55,12 @@ const getSignedUrl = (key, expires = 3600) => {
 };
 
 const getImage = (key) => {
-  return s3.getObject({
-    Key: key,
-    Bucket: awsConfig.BUCKET_NAME,
-  }).promise();
+  return s3
+    .getObject({
+      Key: key,
+      Bucket: awsConfig.BUCKET_NAME,
+    })
+    .promise();
 };
 
 const getMultipleImages = (keys) => {
@@ -45,15 +68,15 @@ const getMultipleImages = (keys) => {
   let promiseArray = [];
 
   keys.map((key) => {
-    let promise = new Promise(resolve => {
-        getImage(`test/${key}`)
+    let promise = new Promise((resolve) => {
+      getImage(`test/${key}`)
         .then((data) => {
-            const imageBuffer = Buffer.from(data.Body);
-            return imageBuffer;
+          const imageBuffer = Buffer.from(data.Body);
+          return imageBuffer;
         })
         .then((buffer) => {
-            imageArray.push(buffer);
-            return resolve(buffer);
+          imageArray.push(buffer);
+          return resolve(buffer);
         })
         .catch((err) => console.error(err));
     });
@@ -65,6 +88,7 @@ const getMultipleImages = (keys) => {
 
 module.exports = {
   uploadToS3,
+  multipleUpload,
   getSignedUrl,
   getImage,
   getMultipleImages,

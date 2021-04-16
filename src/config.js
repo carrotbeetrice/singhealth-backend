@@ -16,4 +16,7 @@ module.exports = {
         OAUTH_CLIENT_SECRET: process.env.OAUTH_CLIENT_SECRET,
         OAUTH_REFRESH_TOKEN: process.env.OAUTH_REFRESH_TOKEN,
     },
+    jwt: {
+        SECRET: process.env.JWT_SECRET,
+    }
 };
