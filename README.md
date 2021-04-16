@@ -19,3 +19,4 @@
 * POST /report/image/upload/test - Test image upload (DEVELOPMENT ONLY)
 * POST /report/image/get - Test image url get (DEVELOPMENT ONLY)
 * POST /report/questions/get - Get checklist questions based on checklist type
+* POST /report/image/upload/multiple - Upload an array of images

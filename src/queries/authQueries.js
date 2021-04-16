@@ -19,7 +19,7 @@ const userAuth = (req, res) => {
         if (err) {
             status = 500;
             authResults.status = status;
-            authResults.error = err;
+            authResults.error = "Cannot connect to server.";
             return res.status(status).send(authResults);
         }
 
@@ -36,7 +36,7 @@ const userAuth = (req, res) => {
                 if (err) {
                     status = 500;
                     authResults.status = status;
-                    authResults.error = err;
+                    authResults.error = "Cannot connect to server.";
                     return res.status(status).send(authResults);
                 }
                 
@@ -64,7 +64,7 @@ const userAuth = (req, res) => {
                 } else {
                     return res.status(403).send({
                         status: 403,
-                        error: "Wrong password"
+                        error: "Password incorrect"
                     });
                 }
             });
