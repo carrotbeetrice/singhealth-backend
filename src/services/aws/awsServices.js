@@ -1,6 +1,7 @@
 const awsConfig = require("../../config").aws;
 const s3Config = require("./s3Config");
 const s3 = s3Config.initialise();
+const { v4: uuidv4 } = require("uuid");
 
 const uploadToS3 = async (key, buffer, mimetype) => {
   return new Promise((resolve, reject) => {
@@ -21,14 +22,16 @@ const multipleUpload = (imageFolder, images) => {
 
   images.map((item) => {
     let promise = new Promise((resolve) => {
+      let imageId = uuidv4();
+      let imageKey = `${imageFolder}/${imageId}`;
       s3.putObject(
         {
           Bucket: awsConfig.BUCKET_NAME,
           ContentType: item.mimetype,
-          Key: `${imageFolder}/${item.originalname}`,
+          Key: imageKey,
           Body: item.buffer,
         },
-        () => resolve()
+        () => resolve(imageKey)
       );
     });
     promiseArray.push(promise);
