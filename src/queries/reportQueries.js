@@ -29,8 +29,190 @@ const testImageIds = [
   "1595e7c9-14da-43a9-885f-32649ad30565",
   "1a16c7b3-c622-4dcb-88de-791be7cfe606",
 ];
-
+const testImageKeys = [{ ImageId: 28 }, { ImageId: 29 }, { ImageId: 30 }];
+const testReportId = 2;
 const imageFolder = "cats";
+
+/*
+Steps:
+1) Upload images to S3 bucket and return image keys
+2) Save image keys into database, return primary keys of newly inserted image records
+3) Check if tenant ID exists in database, send error response if not exists
+4) Save report info into database, return newly inserted report id
+5) Map report id to image records, if any
+6) If score is below 95%, add non-compliance record
+ */
+const createAuditReport = (req, res) => {
+  let promiseArray = awsServices.multipleUpload(imageFolder, req.files); // Step 1
+
+  Promise.all(promiseArray)
+    .then(async (vals) => {
+      // vals is the array of uploaded image keys
+      let savedImageIds = await Promise.resolve(
+        saveImages(testImageIds, req.body.date)
+      ); // Step 2
+
+      // console.log(savedImageIds);
+
+      let answers = JSON.parse(req.body.checklistResponses);
+
+      let outletExistsId = await Promise.resolve(
+        checkOutletExists(answers.tenantid)
+      ); // Step 3
+
+      if (outletExistsId === -1) {
+        return res.status(400).send({
+          error: "Please enter integer ID",
+        });
+      } else if (outletExistsId === 0) {
+        return res.status(404).send({
+          error: "Invalid ID",
+        });
+      }
+
+      let reportObject = {
+        AuditorId: parseInt(req.body.auditorId),
+        OutletId: parseInt(answers.tenantid),
+        Score: parseInt(req.body.score),
+        CreatedOn: new Date(req.body.date),
+        ReportType: parseInt(req.body.checklistTypeId),
+        ChecklistAnswers: JSON.stringify(answers.checklistResponses),
+        Comments: answers.comments != null ? answers.comments : "",
+      };
+
+      // let newReportId = await Promise.resolve(insertReport(reportObject)); // Step 4
+      // if (newReportId < 1) return res.sendStatus(500);
+
+      if (testImageKeys.length > 0) {
+        let mappedIdsCount = await Promise.resolve(
+          mapImageIds(testReportId, savedImageIds)
+        ); // Step 5
+        if (mappedIdsCount < 1) return res.sendStatus(500);
+      }
+
+      
+
+      return res.sendStatus(200);
+    })
+    .catch((err) =>
+      res.status(500).send({
+        error: err,
+      })
+    );
+};
+
+// Save image ids into database
+const saveImages = (keys, uploadDate) => {
+  let insertValues = [];
+
+  keys.forEach((key) => {
+    insertValues.push({
+      ImageKey: key,
+      UploadedOn: new Date(uploadDate),
+    });
+  });
+
+  let insertKeys = sql
+    .insert("Images", insertValues)
+    .returning("ImageId")
+    .toParams();
+
+  let insertPromise = new Promise((resolve) => {
+    pool.query(insertKeys.text, insertKeys.values, (err, result) => {
+      if (err) return resolve([]);
+      else {
+        return resolve(result.rows);
+      }
+    });
+  });
+
+  return insertPromise;
+};
+
+// Check if retail outlet exists in database
+const checkOutletExists = (outletId) => {
+  let checkOutletQuery = sql
+    .select("COUNT(*)")
+    .from("RetailOutlets")
+    .where({ OutletId: outletId })
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      checkOutletQuery.text,
+      checkOutletQuery.values,
+      (err, result) => {
+        if (err) return resolve(-1);
+        else {
+          return resolve(parseInt(result.rows[0].count));
+        }
+      }
+    );
+  });
+};
+
+// Insert report contents into database
+const insertReport = (insertObject) => {
+  let insertReportQuery = sql
+    .insert("Reports", insertObject)
+    .returning("ReportId")
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      insertReportQuery.text,
+      insertReportQuery.values,
+      (err, results) => {
+        if (err) {
+          console.error(err);
+          return resolve(-1);
+        } else {
+          return resolve(parseInt(results.rows[0].ReportId));
+        }
+      }
+    );
+  });
+};
+
+// Map report id to image ids
+const mapImageIds = (reportId, imageKeyObjects) => {
+  let mapValues = imageKeyObjects.map((object) => {
+    return {
+      ReportId: reportId,
+      ImageId: object.ImageId,
+    };
+  });
+  let mapImageIdsQuery = sql
+    .insert("ReportImages", mapValues)
+    .returning("*")
+    .toParams();
+  return new Promise((resolve) => {
+    pool.query(
+      mapImageIdsQuery.text,
+      mapImageIdsQuery.values,
+      (err, results) => {
+        if (err) {
+          console.error(err);
+          return resolve(-1);
+        } else return resolve(results.rows.length);
+      }
+    );
+  });
+};
+
+const getChecklistTypes = (req, res) => {
+  let getTypesQuery = sql.select().from("ChecklistTypes").toParams();
+
+  pool.query(getTypesQuery.text, getTypesQuery.values, (err, result) => {
+    if (err) {
+      return res.status(500).send({
+        error: err,
+      });
+    }
+
+    return res.status(200).send(result.rows);
+  });
+};
 
 // Testing image upload!
 const uploadImage = async (req, res) => {
@@ -52,9 +234,16 @@ const uploadImage = async (req, res) => {
     });
 };
 
-// Upload multiple images
+// Upload multiple images - DEVELOPMENT ONLY
 const uploadMultipleImages = (req, res) => {
   const images = req.files;
+
+  let answers = JSON.parse(req.body.checklistResponses);
+
+  answers.checklistResponses.forEach((category) => {
+    console.log(category.categoryName);
+    console.log(category.questions);
+  });
 
   let promiseArray = awsServices.multipleUpload(imageFolder, images);
 
@@ -118,9 +307,9 @@ const addDefaultQuestion = (req, res) => {
 };
 
 const getChecklistQuestions = (req, res) => {
-  let checklistTypeId = parseInt(req.body.checklistType);
+  let checklistTypeId = parseInt(req.params.typeId);
 
-  // select * from getChecklistQuestions(1)
+  // select * from getChecklistQuestions(checklistType integer)
   const getQuestionsQuery = sql
     .select()
     .from(`getChecklistQuestions(${checklistTypeId})`)
@@ -265,6 +454,8 @@ const addImageToWorksheet = (workbook, worksheet, imageArray) => {
 };
 
 module.exports = {
+  createAuditReport,
+  getChecklistTypes,
   uploadImage,
   getImageUrl,
   getImage,
