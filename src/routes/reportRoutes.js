@@ -11,7 +11,8 @@ router.post('/image/get', reportQueries.getImage);
 
 router.post('/questions/get', reportQueries.getChecklistQuestions);
 
+// router.post('/questions/types', reportQueries.getChecklistTypes);
+
 // DEVELOPMENT ONLY
 router.post('/questions/add', reportQueries.addDefaultQuestion);
-
 module.exports = router;
