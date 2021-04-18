@@ -29,9 +29,14 @@ const testImageIds = [
   "1595e7c9-14da-43a9-885f-32649ad30565",
   "1a16c7b3-c622-4dcb-88de-791be7cfe606",
 ];
-const testImageKeys = [{ ImageId: 28 }, { ImageId: 29 }, { ImageId: 30 }];
-const testReportId = 2;
-const imageFolder = "cats";
+// const testImageKeys = [{ ImageId: 28 }, { ImageId: 29 }, { ImageId: 30 }];
+// const testReportId = 2;
+const imageFolders = {
+  test: "cats",
+  nonCompliances: "non_compliances",
+};
+
+const passingScore = 95;
 
 /*
 Steps:
@@ -43,16 +48,11 @@ Steps:
 6) If score is below 95%, add non-compliance record
  */
 const createAuditReport = (req, res) => {
-  let promiseArray = awsServices.multipleUpload(imageFolder, req.files); // Step 1
+  let promiseArray = awsServices.multipleUpload(imageFolders.nonCompliances, req.files); // Step 1
 
   Promise.all(promiseArray)
     .then(async (vals) => {
       // vals is the array of uploaded image keys
-      let savedImageIds = await Promise.resolve(
-        saveImages(testImageIds, req.body.date)
-      ); // Step 2
-
-      // console.log(savedImageIds);
 
       let answers = JSON.parse(req.body.checklistResponses);
 
@@ -70,27 +70,38 @@ const createAuditReport = (req, res) => {
         });
       }
 
+      let reportedDate = new Date(req.body.date);
+      let resolveByDate = new Date(answers.resolveBy);
+
       let reportObject = {
         AuditorId: parseInt(req.body.auditorId),
         OutletId: parseInt(answers.tenantid),
         Score: parseInt(req.body.score),
-        CreatedOn: new Date(req.body.date),
+        CreatedOn: reportedDate,
         ReportType: parseInt(req.body.checklistTypeId),
         ChecklistAnswers: JSON.stringify(answers.checklistResponses),
         Comments: answers.comments != null ? answers.comments : "",
       };
 
-      // let newReportId = await Promise.resolve(insertReport(reportObject)); // Step 4
-      // if (newReportId < 1) return res.sendStatus(500);
+      let newReportId = await Promise.resolve(insertReport(reportObject)); // Step 4
+      if (newReportId < 1) return res.sendStatus(500);
 
-      if (testImageKeys.length > 0) {
+      if (vals.length > 0) {
+        let savedImageIds = await Promise.resolve(
+          saveImages(vals, req.body.date)
+        ); // Step 2
         let mappedIdsCount = await Promise.resolve(
-          mapImageIds(testReportId, savedImageIds)
+          mapImageIds(newReportId, savedImageIds)
         ); // Step 5
         if (mappedIdsCount < 1) return res.sendStatus(500);
       }
 
-      
+      if (parseInt(req.body.score) < passingScore) {
+        let newNonComplianceId = await Promise.resolve(
+          addNonComplianceRecord(newReportId, reportedDate, resolveByDate)
+        );
+        console.log(newNonComplianceId);
+      }
 
       return res.sendStatus(200);
     })
@@ -200,6 +211,30 @@ const mapImageIds = (reportId, imageKeyObjects) => {
   });
 };
 
+const addNonComplianceRecord = (reportId, reportDate, resolveByDate) => {
+  let addRecordValues = {
+    OriginalReportId: reportId,
+    ReportedDate: reportDate,
+    ResolveByDate: resolveByDate,
+    IsResolved: false,
+  };
+  let addRecordQuery = sql
+    .insert("NonComplianceLog", addRecordValues)
+    .returning("NonComplianceId")
+    .toParams();
+  return new Promise((resolve) => {
+    pool.query(addRecordQuery.text, addRecordQuery.values, (err, results) => {
+      if (err) {
+        console.error(err);
+        return resolve(0);
+      } else {
+        let newRecordId = results.rows[0].NonComplianceId;
+        return resolve(parseInt(newRecordId));
+      }
+    });
+  });
+};
+
 const getChecklistTypes = (req, res) => {
   let getTypesQuery = sql.select().from("ChecklistTypes").toParams();
 
@@ -214,49 +249,9 @@ const getChecklistTypes = (req, res) => {
   });
 };
 
-// Testing image upload!
-const uploadImage = async (req, res) => {
-  const imageId = uuidv4(); //TODO: Save this id into the database!
-  const key = `${imageFolder}/${imageId}`;
-
-  await Promise.resolve(
-    awsServices.uploadToS3(key, req.file.buffer, req.file.mimetype)
-  )
-    .then(() => {
-      res.status(201).send({
-        message: "Upload success",
-      });
-    })
-    .catch((err) => {
-      res.status(500).send({
-        error: err,
-      });
-    });
-};
-
-// Upload multiple images - DEVELOPMENT ONLY
-const uploadMultipleImages = (req, res) => {
-  const images = req.files;
-
-  let answers = JSON.parse(req.body.checklistResponses);
-
-  answers.checklistResponses.forEach((category) => {
-    console.log(category.categoryName);
-    console.log(category.questions);
-  });
-
-  let promiseArray = awsServices.multipleUpload(imageFolder, images);
-
-  Promise.all(promiseArray)
-    .then(() => {
-      res.sendStatus(200);
-    })
-    .catch(() => res.sendStatus(500));
-};
-
 // Test getting image url
 const getImageUrl = async (req, res) => {
-  const key = `${imageFolder}/${req.body.name}`;
+  const key = `${imageFolders.test}/${req.body.name}`;
 
   const url = await Promise.resolve(awsServices.getSignedUrl(key));
   console.log(url);
@@ -266,7 +261,7 @@ const getImageUrl = async (req, res) => {
 };
 
 const getImage = async (req, res) => {
-  const key = `${imageFolder}/${req.body.name}`;
+  const key = `${imageFolders.test}/${req.body.name}`;
 
   awsServices
     .getImage(key)
@@ -456,11 +451,9 @@ const addImageToWorksheet = (workbook, worksheet, imageArray) => {
 module.exports = {
   createAuditReport,
   getChecklistTypes,
-  uploadImage,
   getImageUrl,
   getImage,
   addDefaultQuestion,
   getChecklistQuestions,
   exportTenantReport,
-  uploadMultipleImages,
 };
