@@ -4,4 +4,5 @@ module.exports = (app) => {
     app.use('/directory', require('./directoryRoutes'));
     app.use('/auth', require('./authRoutes'));
     app.use('/report', require('./reportRoutes'));
+    app.use('/dashboard', require('./dashboardRoutes'));
 }
