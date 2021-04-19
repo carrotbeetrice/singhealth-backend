@@ -1,7 +1,5 @@
 const db = require("../pgpool");
 const sql = require("sql-bricks-postgres");
-const _ = require("underscore");
-const e = require("express");
 const pool = db.getPool();
 
 // This is getting tedious damn it
