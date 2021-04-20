@@ -11,18 +11,22 @@ const getDashboardData = async (req, res) => {
   );
   let unresolvedNCs = await Promise.resolve(getNCPercentage(auditorId));
   let ncRecords = await Promise.resolve(getNCRecords(auditorId));
+  let ncCount = await Promise.resolve(getNCCount(auditorId));
+  let auditorInstitution = await Promise.resolve(
+    getAuditorInstitution(auditorId)
+  );
 
   let pageData = {
     monthlyAverageData: monthlyAverageWithIncrease,
     unresolvedNCs: unresolvedNCs,
     nonComplianceRecords: ncRecords,
+    ncCount: ncCount,
+    institution: auditorInstitution.InstitutionName,
   };
-  // console.log(pageData);
 
   res.status(200).send(pageData);
 };
 
-//TODO: Change the db function to return no. of non-compliances instead of average scores
 const getMonthlyAverageWithIncrease = async (auditorId, res) => {
   let results = await Promise.resolve(getMonthlyAverageScores(auditorId));
   let currentMonthAverage, previousMonthAverage;
@@ -107,6 +111,57 @@ const getNCRecords = (auditorId) => {
         } else {
           return resolve(results.rows);
         }
+      }
+    );
+  });
+};
+
+const getNCCount = (auditorId) => {
+  let getNCCountQuery = sql
+    .select()
+    .from(`getnccount(${auditorId})`)
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(getNCCountQuery.text, getNCCountQuery.values, (err, result) => {
+      if (err) {
+        console.error(err);
+        return resolve({});
+      } else {
+        let lastTwoMonths = result.rows;
+
+        let currentMonthCount = parseInt(lastTwoMonths[0].noncompliances);
+        let previousMonthCount = parseInt(lastTwoMonths[1].noncompliances);
+
+        // Calculate percentage change in non-compliance count
+        let change =
+          (100 * (currentMonthCount - previousMonthCount)) / previousMonthCount;
+
+        return resolve({
+          currentCount: currentMonthCount,
+          percentageChange: change,
+        });
+      }
+    });
+  });
+};
+
+const getAuditorInstitution = (auditorId) => {
+  let getInstitutionQuery = sql
+    .select("InstitutionName")
+    .from("StaffInstitutions")
+    .innerJoin("Institutions")
+    .on("StaffInstitutions.institutionid", "Institutions.InstitutionId")
+    .where({ staffid: auditorId })
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      getInstitutionQuery.text,
+      getInstitutionQuery.values,
+      (err, result) => {
+        if (err) return resolve({});
+        else return resolve(result.rows[0]);
       }
     );
   });
