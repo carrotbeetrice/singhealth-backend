@@ -5,4 +5,5 @@ module.exports = (app) => {
     app.use('/auth', require('./authRoutes'));
     app.use('/report', require('./reportRoutes'));
     app.use('/dashboard', require('./dashboardRoutes'));
+    app.use('/actions', require('./tenantActionRoutes'));
 }

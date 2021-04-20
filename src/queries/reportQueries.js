@@ -40,35 +40,35 @@ const passingScore = 95;
 
 /*
 Steps:
-1) Upload images to S3 bucket and return image keys
-2) Save image keys into database, return primary keys of newly inserted image records
-3) Check if tenant ID exists in database, send error response if not exists
+1) Check if tenant ID exists in database, send error response if not exists
+2) Upload images to S3 bucket and return image keys
+3) Save image keys into database, return primary keys of newly inserted image records
 4) Save report info into database, return newly inserted report id
 5) Map report id to image records, if any
 6) If score is below 95%, add non-compliance record
  */
-const createAuditReport = (req, res) => {
-  let promiseArray = awsServices.multipleUpload(imageFolders.nonCompliances, req.files); // Step 1
+const createAuditReport = async (req, res) => {
+  let answers = JSON.parse(req.body.checklistResponses);
+
+  let outletExistsId = await Promise.resolve(
+    checkOutletExists(answers.tenantid)
+  ); // Step 1
+
+  if (outletExistsId === -1) {
+    return res.status(400).send({
+      error: "Please enter integer ID",
+    });
+  } else if (outletExistsId === 0) {
+    return res.status(404).send({
+      error: "Invalid ID",
+    });
+  }
+
+  let promiseArray = awsServices.multipleUpload(imageFolders.nonCompliances, req.files); // Step 2
 
   Promise.all(promiseArray)
     .then(async (vals) => {
       // vals is the array of uploaded image keys
-
-      let answers = JSON.parse(req.body.checklistResponses);
-
-      let outletExistsId = await Promise.resolve(
-        checkOutletExists(answers.tenantid)
-      ); // Step 3
-
-      if (outletExistsId === -1) {
-        return res.status(400).send({
-          error: "Please enter integer ID",
-        });
-      } else if (outletExistsId === 0) {
-        return res.status(404).send({
-          error: "Invalid ID",
-        });
-      }
 
       let reportedDate = new Date(req.body.date);
       let resolveByDate = new Date(answers.resolveBy);
@@ -89,7 +89,7 @@ const createAuditReport = (req, res) => {
       if (vals.length > 0) {
         let savedImageIds = await Promise.resolve(
           saveImages(vals, req.body.date)
-        ); // Step 2
+        ); // Step 3
         let mappedIdsCount = await Promise.resolve(
           mapImageIds(newReportId, savedImageIds)
         ); // Step 5
@@ -251,10 +251,10 @@ const getChecklistTypes = (req, res) => {
 
 // Test getting image url
 const getImageUrl = async (req, res) => {
-  const key = `${imageFolders.test}/${req.body.name}`;
+  const key = req.body.key;
 
   const url = await Promise.resolve(awsServices.getSignedUrl(key));
-  console.log(url);
+  // console.log(url);
   res.status(200).send({
     signedUrl: url,
   });

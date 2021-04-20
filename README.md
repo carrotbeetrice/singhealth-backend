@@ -22,3 +22,5 @@
 * POST /report/image/upload/multiple - Upload an array of images (DEVELOPMENT ONLY)
 ### Dashboard Endpoints
 * GET /dashboard/:auditorId - Get data for dashboard
+### Tenant Action Endpoints
+* GET /actions/unresolved/:tenantId - Get list of unresolved non-compliances for the tenant
