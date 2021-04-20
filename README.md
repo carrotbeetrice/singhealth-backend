@@ -20,6 +20,7 @@
 * POST /report/image/get - Test image url get (DEVELOPMENT ONLY)
 * GET /report/questions/:typeId - Get checklist questions based on checklist type
 * POST /report/image/upload/multiple - Upload an array of images (DEVELOPMENT ONLY)
+* GET /report/export/:reportId - Export full audit report as Excel
 ### Dashboard Endpoints
 * GET /dashboard/:auditorId - Get data for dashboard
 ### Tenant Action Endpoints

@@ -1,12 +1,11 @@
 const awsServices = require("../services/aws/awsServices");
-const { v4: uuidv4 } = require("uuid");
 const db = require("../pgpool");
 const sql = require("sql-bricks-postgres");
 const _ = require("underscore");
 const bcrypt = require("bcrypt");
 const excel = require("exceljs");
 const pool = db.getPool();
-const checklist = require("../../help_me/checklist_format.json");
+const email = require("../services/email/sendEmail");
 
 //TODO: Add the rest of the queries for the reports
 
@@ -22,20 +21,11 @@ const tenantReportColumns = [
   { header: "Report Score", key: "checklistscore" },
   { header: "Reported On", key: "reportedon" },
 ];
-
-//TODO: Get rid of this pls
-const testImageIds = [
-  "little-kittens.jpg",
-  "1595e7c9-14da-43a9-885f-32649ad30565",
-  "1a16c7b3-c622-4dcb-88de-791be7cfe606",
-];
-// const testImageKeys = [{ ImageId: 28 }, { ImageId: 29 }, { ImageId: 30 }];
-// const testReportId = 2;
 const imageFolders = {
   test: "cats",
   nonCompliances: "non_compliances",
+  rectifications: "rectifications",
 };
-
 const passingScore = 95;
 
 /*
@@ -64,7 +54,10 @@ const createAuditReport = async (req, res) => {
     });
   }
 
-  let promiseArray = awsServices.multipleUpload(imageFolders.nonCompliances, req.files); // Step 2
+  let promiseArray = awsServices.multipleUpload(
+    imageFolders.nonCompliances,
+    req.files
+  ); // Step 2
 
   Promise.all(promiseArray)
     .then(async (vals) => {
@@ -235,6 +228,7 @@ const addNonComplianceRecord = (reportId, reportDate, resolveByDate) => {
   });
 };
 
+// Get checklist options
 const getChecklistTypes = (req, res) => {
   let getTypesQuery = sql.select().from("ChecklistTypes").toParams();
 
@@ -249,7 +243,213 @@ const getChecklistTypes = (req, res) => {
   });
 };
 
-// Test getting image url
+// Get questions based on checklist type selected
+const getChecklistQuestions = (req, res) => {
+  let checklistTypeId = parseInt(req.params.typeId);
+
+  const getQuestionsQuery = sql
+    .select()
+    .from(`getChecklistQuestions(${checklistTypeId})`)
+    .toParams();
+
+  pool.query(
+    getQuestionsQuery.text,
+    getQuestionsQuery.values,
+    (err, results) => {
+      if (err) {
+        return res.status(500).send({
+          error: err,
+        });
+      } else {
+        return res.status(200).send(results.rows[0].checklistquestions);
+      }
+    }
+  );
+};
+
+// Export tenant report + non-compliance images
+const exportTenantReport = async (req, res) => {
+  const reportFile = await writeTenantReport(req, res);
+  res.status(200).send(reportFile.buffer);
+};
+
+// Send report to tenant
+const emailToTenant = async (req, res) => {
+  const reportFile = await writeTenantReport(req, res);
+  let reportId = parseInt(req.params.reportId);
+  let receiverInfo = await Promise.resolve(getReceiverInfo(reportId));
+  return email.sendTenantReport(receiverInfo, reportFile, res);
+}
+
+// Get receiver information
+const getReceiverInfo = (reportId) => {
+  // select * from getReceiverInfo(4);
+  let getInfoQuery = sql.select().from(`getReceiverInfo(${reportId})`).toParams();
+
+  return new Promise((resolve) => {
+    pool.query(getInfoQuery.text, getInfoQuery.values, (err, results) => {
+      if (err) throw err;
+      else return resolve(results.rows[0]);
+    });
+  });
+}
+
+// Export report to excel file and return file buffer + filename
+const writeTenantReport = async (req, res) => {
+  let reportId = parseInt(req.params.reportId);
+
+  // Get full report from database
+  const reportData = await Promise.resolve(getFullTenantReport(reportId));
+  if (reportData === {}) {
+    return res.status(500).send({
+      error: "Error exporting report",
+    });
+  }
+  // console.log(reportData);
+
+  // Retrieve image keys from database and download images from AWS S3 bucket
+  const imageKeys = await Promise.resolve(getReportImageKeys(reportId));
+  let promiseArray = awsServices.getMultipleImages(imageKeys);
+  let reportImagesArray = await Promise.all(promiseArray);
+
+  let workbook = new excel.Workbook();
+  let reportInfoWorksheet = workbook.addWorksheet("Report Info");
+  let reportContentsWorksheet = workbook.addWorksheet("Report Content");
+
+  reportInfoWorksheet.columns = tenantReportColumns;
+
+  let rowValues = [];
+  rowValues.push(reportData);
+
+  reportInfoWorksheet.addRows(rowValues);
+
+  reportContentsWorksheet.columns = [
+    { header: "Question", key: "question", width: 50 },
+    { header: "Answer", key: "answer" },
+  ];
+
+  // Generate filename
+  let fileName = `${reportData.reportid}_${reportData.reportedon}_${Date.now()}.xlsx`;
+
+  populateReportChecklist(reportContentsWorksheet, reportData.checklistcontents);
+  addImageToWorksheet(workbook, reportContentsWorksheet, reportImagesArray);
+  setExcelResponseHeaders(res, fileName);
+
+  const reportBuffer = await Promise.resolve(workbook.xlsx.writeBuffer());
+  return {
+    fileName: fileName,
+    buffer: reportBuffer
+  };
+};
+
+const getFullTenantReport = (reportId) => {
+  const getFullReportQuery = sql
+    .select()
+    .from(`getFullTenantReport(${reportId})`)
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      getFullReportQuery.text,
+      getFullReportQuery.values,
+      (err, results) => {
+        if (err) {
+          console.log(err);
+          return resolve({});
+        }
+        else return resolve(results.rows[0]);
+      }
+    );
+  });
+};
+
+const getReportImageKeys = (reportId) => {
+  let getImageKeysQuery = sql
+    .select('array_agg("ImageKey")')
+    .from("Images")
+    .innerJoin("ReportImages")
+    .on("Images.ImageId", "ReportImages.ImageId")
+    .where({ ReportId: reportId })
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      getImageKeysQuery.text,
+      getImageKeysQuery.values,
+      (err, results) => {
+        if (err) {
+          console.error(err);
+          return resolve([]);
+        } else {
+          let imageKeys = results.rows[0].array_agg;
+
+          if (imageKeys != null) {
+            return resolve(imageKeys);
+          } else return resolve([]);
+        }
+      }
+    );
+  });
+};
+
+const populateReportChecklist = (worksheet, checklistContents) => {
+  checklistContents.forEach((category) => {
+    worksheet.addRow({ question: category.categoryName }, "bold");
+    category.questions.forEach((item) => {
+      worksheet.addRow({
+        question: item.question,
+        answer: mapResponse(item.value),
+      });
+    });
+  });
+};
+
+const mapResponse = (answer) => {
+  let value = parseInt(answer);
+
+  if (value === 0) value = "Yes";
+  else if (value === 1) value = "No";
+  else value = "NA";
+
+  return value;
+}
+
+const setExcelResponseHeaders = (res, fileName) => {
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  );
+  res.setHeader(
+    "Content-Disposition",
+    "attachment; filename=" + fileName
+  );
+};
+
+const addImageToWorksheet = (workbook, worksheet, imageArray) => {
+  var imageIdArray = [];
+
+  imageArray.map((image) => {
+    imageIdArray.push(
+      workbook.addImage({
+        buffer: image,
+        extension: "jpeg",
+      })
+    );
+  });
+
+  var x = 0.5;
+
+  imageIdArray.map((id) => {
+    worksheet.addImage(id, {
+      tl: { col: 3.0, row: x },
+      br: { col: 10.0, row: x + 10 },
+      editAs: "absolute",
+    });
+    x += 15;
+  });
+};
+
+// Test getting image url - DEVELOPMENT ONLY
 const getImageUrl = async (req, res) => {
   const key = req.body.key;
 
@@ -260,6 +460,7 @@ const getImageUrl = async (req, res) => {
   });
 };
 
+// Test getting image - DEVELOPMENT ONLY
 const getImage = async (req, res) => {
   const key = `${imageFolders.test}/${req.body.name}`;
 
@@ -301,153 +502,6 @@ const addDefaultQuestion = (req, res) => {
   });
 };
 
-const getChecklistQuestions = (req, res) => {
-  let checklistTypeId = parseInt(req.params.typeId);
-
-  // select * from getChecklistQuestions(checklistType integer)
-  const getQuestionsQuery = sql
-    .select()
-    .from(`getChecklistQuestions(${checklistTypeId})`)
-    .toParams();
-
-  pool.query(
-    getQuestionsQuery.text,
-    getQuestionsQuery.values,
-    (err, results) => {
-      if (err) {
-        return res.status(500).send({
-          error: err,
-        });
-      } else {
-        return res.status(200).send(results.rows[0].checklistquestions);
-      }
-    }
-  );
-};
-
-// Export tenant report + non-compliance images
-const exportTenantReport = (req, res) => {
-  let reportId = parseInt(req.body.reportId);
-
-  const getFullReportQuery = sql
-    .select()
-    .from(`getFullTenantReport(${reportId})`)
-    .toParams();
-
-  let promiseArray = awsServices.getMultipleImages(testImageIds);
-
-  Promise.all(promiseArray)
-    .then((resolved) => {
-      console.log(resolved);
-      reportImagesArray = resolved;
-
-      pool.query(
-        getFullReportQuery.text,
-        getFullReportQuery.values,
-        (err, results) => {
-          if (err) {
-            return res.status(500).send({
-              error: err,
-            });
-          }
-
-          let reportData = results.rows[0];
-
-          let workbook = new excel.Workbook();
-          let reportInfoWorksheet = workbook.addWorksheet("Report Info");
-          let reportContentsWorksheet = workbook.addWorksheet("Report Content");
-
-          reportInfoWorksheet.columns = tenantReportColumns;
-
-          let rowValues = [];
-          rowValues.push(reportData);
-
-          reportInfoWorksheet.addRows(rowValues);
-
-          reportContentsWorksheet.columns = [
-            { header: "Question", key: "question", width: 50 },
-            { header: "Answer", key: "answer" },
-          ];
-
-          populateReportChecklist(reportContentsWorksheet);
-
-          addImageToWorksheet(
-            workbook,
-            reportContentsWorksheet,
-            reportImagesArray
-          );
-
-          setExcelResponseHeaders(
-            res,
-            reportData.reportid,
-            reportData.reportedon
-          );
-
-          return workbook.xlsx
-            .write(res)
-            .then(() => {
-              res.status(200).end();
-            })
-            .catch((err) =>
-              res.status(500).send({
-                error: err,
-              })
-            );
-        }
-      );
-    })
-    .catch((err) => res.status(500).send({ error: err }));
-};
-
-const populateReportChecklist = (worksheet) => {
-  checklist.forEach((category) => {
-    worksheet.addRow({ question: category.category }, "bold");
-    category.subcategories.forEach((subcategory) => {
-      worksheet.addRow({
-        question: subcategory.subcategory,
-      });
-      subcategory.questions.forEach((question) => {
-        worksheet.addRow(question);
-      });
-    });
-  });
-};
-
-const setExcelResponseHeaders = (res, id, reportedOn) => {
-  res.setHeader(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  );
-  res.setHeader(
-    "Content-Disposition",
-    "attachment; filename=" + `${id}_${reportedOn}_${Date.now()}.xlsx`
-  );
-};
-
-const addImageToWorksheet = (workbook, worksheet, imageArray) => {
-  var imageIdArray = [];
-
-  imageArray.map((image) => {
-    imageIdArray.push(
-      workbook.addImage({
-        buffer: image,
-        extension: "jpeg",
-      })
-    );
-  });
-
-  var x = 0.5;
-
-  imageIdArray.map((id) => {
-    worksheet.addImage(id, {
-      tl: { col: 3.0, row: x },
-      br: { col: 10.0, row: x + 10 },
-      editAs: "absolute",
-    });
-    x += 15;
-  });
-};
-
 module.exports = {
   createAuditReport,
   getChecklistTypes,
@@ -456,4 +510,5 @@ module.exports = {
   addDefaultQuestion,
   getChecklistQuestions,
   exportTenantReport,
+  emailToTenant,
 };
