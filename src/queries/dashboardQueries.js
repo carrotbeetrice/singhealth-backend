@@ -4,6 +4,7 @@ const pool = db.getPool();
 
 const getDashboardData = async (req, res) => {
   let auditorId = parseInt(req.params.auditorId);
+  let tenantId = parseInt(req.params.tenantId);
 
   let monthlyAverageWithIncrease = await getMonthlyAverageWithIncrease(
     auditorId,
@@ -15,6 +16,7 @@ const getDashboardData = async (req, res) => {
   let auditorInstitution = await Promise.resolve(
     getAuditorInstitution(auditorId)
   );
+  let monthlyScores = await Promise.resolve(getMonthlyScores(tenantId));
 
   let pageData = {
     monthlyAverageData: monthlyAverageWithIncrease,
@@ -22,6 +24,7 @@ const getDashboardData = async (req, res) => {
     nonComplianceRecords: ncRecords,
     ncCount: ncCount,
     institution: auditorInstitution.InstitutionName,
+    monthlyScores: monthlyScores
   };
 
   res.status(200).send(pageData);
@@ -166,6 +169,28 @@ const getAuditorInstitution = (auditorId) => {
     );
   });
 };
+
+const getMonthlyScores = async (outletId, res) => {
+  let getMonthlyScoresQuery = sql
+      .select()
+      .from("Reports")
+      .where({OutletId: outletId})
+
+  return new Promise((resolve) => {
+      pool.query(
+          getMonthlyScoresQuery.text,
+          getMonthlyScoresQuery.values,
+          (err, results) => {
+              if (err) {
+                  console.error(err);
+                  return resolve([]);
+              } else {
+                  return resolve(results.rows);
+              }
+          }
+      )
+  })
+}
 
 module.exports = {
   getDashboardData,
