@@ -4,7 +4,7 @@ const directoryQueries = require('../queries/directoryQueries');
 router.get('/outlets/types', directoryQueries.getOutletTypes);
 
 // GET /outlets - Get all retail outlets
-router.get('/outlets', directoryQueries.getAllOutlets);
+router.get('/outlets/:auditorId', directoryQueries.getAllOutlets);
 
 // POST /outlets/add - Add retail outlet
 router.put('/outlets/add', directoryQueries.addOutlet);
