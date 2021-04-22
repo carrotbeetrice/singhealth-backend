@@ -1,8 +1,6 @@
 const awsServices = require("../services/aws/awsServices");
 const db = require("../pgpool");
 const sql = require("sql-bricks-postgres");
-const _ = require("underscore");
-const bcrypt = require("bcrypt");
 const excel = require("exceljs");
 const pool = db.getPool();
 const email = require("../services/email/sendEmail");
@@ -279,12 +277,15 @@ const emailToTenant = async (req, res) => {
   let reportId = parseInt(req.params.reportId);
   let receiverInfo = await Promise.resolve(getReceiverInfo(reportId));
   return email.sendTenantReport(receiverInfo, reportFile, res);
-}
+};
 
 // Get receiver information
 const getReceiverInfo = (reportId) => {
   // select * from getReceiverInfo(4);
-  let getInfoQuery = sql.select().from(`getReceiverInfo(${reportId})`).toParams();
+  let getInfoQuery = sql
+    .select()
+    .from(`getReceiverInfo(${reportId})`)
+    .toParams();
 
   return new Promise((resolve) => {
     pool.query(getInfoQuery.text, getInfoQuery.values, (err, results) => {
@@ -292,7 +293,7 @@ const getReceiverInfo = (reportId) => {
       else return resolve(results.rows[0]);
     });
   });
-}
+};
 
 // Export report to excel file and return file buffer + filename
 const writeTenantReport = async (req, res) => {
@@ -329,16 +330,21 @@ const writeTenantReport = async (req, res) => {
   ];
 
   // Generate filename
-  let fileName = `${reportData.reportid}_${reportData.reportedon}_${Date.now()}.xlsx`;
+  let fileName = `${reportData.reportid}_${
+    reportData.reportedon
+  }_${Date.now()}.xlsx`;
 
-  populateReportChecklist(reportContentsWorksheet, reportData.checklistcontents);
+  populateReportChecklist(
+    reportContentsWorksheet,
+    reportData.checklistcontents
+  );
   addImageToWorksheet(workbook, reportContentsWorksheet, reportImagesArray);
   setExcelResponseHeaders(res, fileName);
 
   const reportBuffer = await Promise.resolve(workbook.xlsx.writeBuffer());
   return {
     fileName: fileName,
-    buffer: reportBuffer
+    buffer: reportBuffer,
   };
 };
 
@@ -356,8 +362,7 @@ const getFullTenantReport = (reportId) => {
         if (err) {
           console.log(err);
           return resolve({});
-        }
-        else return resolve(results.rows[0]);
+        } else return resolve(results.rows[0]);
       }
     );
   });
@@ -412,17 +417,14 @@ const mapResponse = (answer) => {
   else value = "NA";
 
   return value;
-}
+};
 
 const setExcelResponseHeaders = (res, fileName) => {
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   );
-  res.setHeader(
-    "Content-Disposition",
-    "attachment; filename=" + fileName
-  );
+  res.setHeader("Content-Disposition", "attachment; filename=" + fileName);
 };
 
 const addImageToWorksheet = (workbook, worksheet, imageArray) => {
