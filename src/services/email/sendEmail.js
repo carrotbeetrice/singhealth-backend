@@ -13,8 +13,9 @@ const sendTenantReport = (receiverInfo, excelFile, res) => {
 
     transporter.sendMail(mailOptions, (err) => {
         if (err) {
-            console.error(err);
-            res.status(500).send(err);
+            throw err;
+            // console.error(err);
+            // res.status(500).send(err);
         } else {
             res.sendStatus(200);
         }

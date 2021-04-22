@@ -196,6 +196,7 @@ const getNCCount = (auditorId) => {
         return resolve({});
       } else {
         let lastTwoMonths = result.rows;
+        console.log(lastTwoMonths);
 
         if (lastTwoMonths === []) return resolve({
           currentMonthCount: 0,
