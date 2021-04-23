@@ -1,4 +1,4 @@
-# SingHealth Backend
+# 50.003 Project: Backend for Singhealth Project
 
 ## Endpoints
 ### Authentication Endpoint
