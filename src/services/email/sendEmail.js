@@ -1,8 +1,29 @@
 const nodemailer = require("nodemailer");
 const emailConfig = require("../../config").email;
 
-const sendTenantReport = (req, res) => {
-    let transporter =  nodemailer.createTransport({
+const defaultEmailSettings = {
+    sender: "sinkhealth61@gmail.com",
+    subject: "Audit Report",
+    to: "caryl830@gmail.com",
+}
+
+const sendTenantReport = (receiverInfo, excelFile, res) => {
+    const transporter = configTransporter();
+    let mailOptions = generateMailOptions(receiverInfo, excelFile);
+
+    transporter.sendMail(mailOptions, (err) => {
+        if (err) {
+            throw err;
+            // console.error(err);
+            // res.status(500).send(err);
+        } else {
+            res.sendStatus(200);
+        }
+    });
+}
+
+const configTransporter = () => {
+    return nodemailer.createTransport({
         service: "gmail",
         auth: {
             type: "OAuth2",
@@ -13,21 +34,29 @@ const sendTenantReport = (req, res) => {
             refreshToken: emailConfig.OAUTH_REFRESH_TOKEN,
         }
     });
+}
 
+const generateMailOptions = (receiverInfo, excelFile) => {
     let mailOptions = {
-        from: "sinkhealth61@gmail.com",
-        to: "caryl830@gmail.com",
-        subject: "Nodemailer Project",
-        text: "CHEEESE",
+        from: defaultEmailSettings.sender,
+        to: defaultEmailSettings.to, // receiverInfo.email,
+        subject: defaultEmailSettings.subject + ` (${receiverInfo.reporttype})`,
+        text: generateMessage(receiverInfo), 
+        attachments: [{
+            filename: excelFile.fileName,
+            content: excelFile.buffer,
+        }]
     };
+    return mailOptions;
+}
 
-    transporter.sendMail(mailOptions, (err, data) => {
-        if (err) {
-            res.status(500).send(err);
-        } else {
-            res.sendStatus(200);
-        }
-    });
+const generateMessage = (receiverInfo) => {
+    let message = "Dear " + receiverInfo.name + ", \n"
+    + "Please find attached the " + receiverInfo.reporttype + " audit report for your retail outlet, "
+    + receiverInfo.outletname + ` (outlet Id ${receiverInfo.outletid}).`
+    + "Regards, \n"
+    + "Singhealth staff";
+    return message;
 }
 
 module.exports = {

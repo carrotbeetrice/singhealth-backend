@@ -2,9 +2,6 @@ const db = require("../pgpool");
 const sql = require("sql-bricks-postgres");
 const pool = db.getPool();
 
-// This is getting tedious damn it
-const tenantRoleId = 2;
-
 // Reformat date string
 const formatDate = (rawDateString) => {
   let date = new Date(rawDateString);
@@ -31,29 +28,40 @@ const getOutletTypes = (req, res) => {
 };
 
 const getAllOutlets = (req, res) => {
-  let getOutletsQuery = sql
-    .select()
-    .from("getAllOutlets()")
-    .orderBy("outletid")
-    .toParams();
+  let auditorId = parseInt(req.params.auditorId);
 
-  pool.query(getOutletsQuery.text, getOutletsQuery.values, (err, results) => {
-    if (err) {
-      return res.status(400).send({
-        message: err,
-      });
-    }
+  Promise.resolve(getStaffInstitution(auditorId))
+    .then((institutionInfo) => {
+      let getOutletsQuery = sql
+        .select()
+        .from(`getAllOutlets(${institutionInfo.id})`)
+        .orderBy("outletid")
+        .toParams();
 
-    return res.status(200).send(results.rows);
-  });
+      pool.query(
+        getOutletsQuery.text,
+        getOutletsQuery.values,
+        (err, results) => {
+          if (err) throw err;
+          else
+            res.status(200).send({
+              outletRecords: results.rows,
+              institutionInfo: institutionInfo,
+            });
+        }
+      );
+    })
+    .catch(() => res.sendStatus(500));
 };
 
 const addOutlet = (req, res) => {
   // Check if tenant exists
+  const tenantId = parseInt(req.body.tenantid);
+
   let checkTenantQuery = sql
-    .select("UserId")
+    .select("count(*)")
     .from("Users")
-    .where({ Email: req.body.email, RoleId: tenantRoleId })
+    .where({ UserId: tenantId })
     .toParams();
 
   pool.query(
@@ -68,18 +76,16 @@ const addOutlet = (req, res) => {
         });
       }
 
-      if (tenantCheckResults.rows.length === 0) {
+      if (tenantCheckResults.rows[0].count == 0) {
         return res.status(400).send({
           status: 400,
           error: "Tenant does not exist",
         });
       }
 
-      let submittedTenantId = tenantCheckResults.rows[0].UserId;
-
       let tableInsertValues = {
         OutletName: req.body.outletname,
-        TenantId: submittedTenantId,
+        TenantId: tenantId,
         UnitNumber: req.body.unitnumber,
         TenancyStart: formatDate(req.body.tenancystart),
         TenancyEnd: formatDate(req.body.tenancyend),
@@ -115,12 +121,12 @@ const addOutlet = (req, res) => {
 
 const updateOutlet = (req, res) => {
   // Check if given tenant exists
+  const tenantId = parseInt(req.body.tenantid);
   let checkTenantQuery = sql
-    .select("UserId")
+    .select("count(*)")
     .from("Users")
     .where({
-      Email: req.body.email,
-      RoleId: tenantRoleId,
+      UserId: tenantId,
     })
     .toParams();
 
@@ -135,19 +141,16 @@ const updateOutlet = (req, res) => {
         });
       }
 
-      if (tenantCheckResults.rows.length === 0) {
+      if (tenantCheckResults.rows[0].count === 0) {
         return res.status(400).send({
           status: 400,
           error: "Tenant does not exist",
         });
       }
 
-      let submittedTenantId = tenantCheckResults.rows[0].UserId;
-
       let tableUpdateValues = {
-        // OutletId: req.body.outletid,
         OutletName: req.body.outletname,
-        TenantId: submittedTenantId,
+        TenantId: tenantId,
         UnitNumber: req.body.unitnumber,
         TenancyStart: formatDate(req.body.tenancystart),
         TenancyEnd: formatDate(req.body.tenancyend),
@@ -158,6 +161,7 @@ const updateOutlet = (req, res) => {
       let updateOutletQuery = sql
         .update("RetailOutlets", tableUpdateValues)
         .where({ OutletId: req.body.outletid })
+        .returning("OutletId")
         .toParams();
 
       pool.query(
@@ -171,10 +175,17 @@ const updateOutlet = (req, res) => {
               error: err,
             });
           } else {
-            return res.status(200).send({
-              status: 200,
-              message: "All good bois",
-            });
+            let updatedRecord = parseInt(updateQueryResults.rows[0].OutletId);
+            if (updatedRecord != null) {
+              return res.status(200).send({
+                status: 200,
+                message: "All good bois",
+              });
+            } else
+              return res.status(500).send({
+                status: 500,
+                error: "What",
+              });
           }
         }
       );
@@ -207,6 +218,27 @@ const deleteOutlet = (req, res) => {
       }
     }
   );
+};
+
+const getStaffInstitution = (staffId) => {
+  let getStaffInstitutionQuery = sql
+    .select(["institutionid as Id", "InstitutionName as Name"])
+    .from("StaffInstitutions")
+    .innerJoin("Institutions")
+    .on("InstitutionId", "institutionid")
+    .where({ staffid: staffId })
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      getStaffInstitutionQuery.text,
+      getStaffInstitutionQuery.values,
+      (err, results) => {
+        if (err) return resolve(0);
+        else return resolve(results.rows[0]);
+      }
+    );
+  });
 };
 
 module.exports = {

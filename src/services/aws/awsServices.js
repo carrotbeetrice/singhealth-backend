@@ -72,7 +72,7 @@ const getMultipleImages = (keys) => {
 
   keys.map((key) => {
     let promise = new Promise((resolve) => {
-      getImage(`test/${key}`)
+      getImage(key)
         .then((data) => {
           const imageBuffer = Buffer.from(data.Body);
           return imageBuffer;

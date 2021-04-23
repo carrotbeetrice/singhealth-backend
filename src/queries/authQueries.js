@@ -6,6 +6,7 @@ const generateToken = require('../utils/jwtUtils').generateToken;
 const pool = db.getPool();
 
 const auditorRoleId = 1;
+const tenantRoleId = 2;
 
 const userAuth = (req, res) => {
     let authResults = {};
@@ -53,10 +54,8 @@ const userAuth = (req, res) => {
                     };
                     authResults.user = user;
 
-                    // Create token if user is an auditor
-                    if (user.role == auditorRoleId) {
-                        authResults.token = generateToken(user.id);
-                    }
+                    // Create token for user
+                    authResults.token = generateToken(user.id);
 
                     // console.log(authResults);
 

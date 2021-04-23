@@ -10,7 +10,7 @@ app.use(cors());
 
 // Use API routes
 require('./routes')(app);
-app.use('/mail', email.sendTenantReport); // test only
+// app.use('/mail', email.sendTenantReport); // test only
 
 let port = process.env.PORT;
 

@@ -15,8 +15,8 @@ router.post(
 
 router.get("/questions/:typeId", reportQueries.getChecklistQuestions);
 router.get("/checklistTypes", reportQueries.getChecklistTypes);
-
-router.post("/tenant", reportQueries.exportTenantReport);
+router.get("/export/:reportId", reportQueries.exportTenantReport);
+router.get("/email/:reportId", reportQueries.emailToTenant);
 
 // DEVELOPMENT ONLY
 router.post("/image/get", reportQueries.getImage);
