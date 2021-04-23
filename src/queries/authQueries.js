@@ -6,6 +6,7 @@ const generateToken = require('../utils/jwtUtils').generateToken;
 const pool = db.getPool();
 
 const auditorRoleId = 1;
+const tenantRoleId = 2;
 
 const userAuth = (req, res) => {
     let authResults = {};

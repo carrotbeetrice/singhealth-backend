@@ -2,34 +2,107 @@ const db = require("../pgpool");
 const sql = require("sql-bricks-postgres");
 const pool = db.getPool();
 
+//tenant side data
+//get tenant outstanding nc
+const getTenantOutlets = (userId) => {
+  let getTenantOutletsQuery = sql
+    .select("OutletId")
+    .from("RetailOutlets")
+    .where({TenantId: userId})
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      getTenantOutletsQuery.text,
+      getTenantOutletsQuery.values,
+      (err, results) => {
+        if (err) return resolve([]);
+        else return resolve(results.rows);
+      }
+    );
+  });
+}
+
+const getTenantReports = async (userId) => {
+  let tenantOutlets = await Promise.resolve(getTenantOutlets(userId));
+  console.log(tenantOutlets);
+  let getTenantReportsQuery = sql
+    .select("ReportId")
+    .from("Reports")
+    .where(sql.or(tenantOutlets.map(({OutletId}) => ({OutletId:OutletId}))))
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      getTenantReportsQuery.text,
+      getTenantReportsQuery.values,
+      (err, results) => {
+        if (err) return resolve([]);
+        else return resolve(results.rows);
+      }
+    );
+  });
+}
+//get tenant latest score
+const getTenantLatestScore = async (userId) => {
+  let tenantOutlets = await Promise.resolve(getTenantOutlets(userId));
+  let getTenantLatestScoreQuery = sql
+    .select("Score")
+    .from("Reports")
+    .where(sql.or(tenantOutlets.map(({OutletId}) => ({OutletId:OutletId}))))
+    .toParams();
+
+  return new Promise((resolve) => {
+    pool.query(
+      getTenantLatestScoreQuery.text,
+      getTenantLatestScoreQuery.values,
+      (err, results) => {
+        if (err) return resolve([]);
+        else return resolve(results.rows);
+      }
+    );
+  });
+}
+//get tenant past scores
+//get tenant pending and unresolved cases
+
+//audit side data
 const getDashboardData = async (req, res) => {
-  const auditorId = parseInt(req.params.auditorId);
-
-  // const monthlyAverageWithIncrease = await getMonthlyAverageWithIncrease(
-  //   auditorId,
-  //   res
-  // );
-  const unresolvedNCs = await Promise.resolve(getNCPercentage(auditorId));
-  const ncRecords = await Promise.resolve(getNCRecords(auditorId));
-  const ncCount = await Promise.resolve(getNCCount(auditorId));
+  console.log(req.params);
+  // req.params.auditorId = req.params.userId;
+  const userId = parseInt(req.params.userId);
+  
+  const unresolvedNCs = await Promise.resolve(getNCPercentage(userId));
+  const ncRecords = await Promise.resolve(getNCRecords(userId));
+  const ncCount = await Promise.resolve(getNCCount(userId));
   const auditorInstitution = await Promise.resolve(
-    getAuditorInstitution(auditorId)
+    getAuditorInstitution(userId)
   );
-  const outletScores = await Promise.resolve(getOutletScores(auditorId));
+  const outletScores = await Promise.resolve(getOutletScores(userId));
+  
+  
+  const tenantNC = await Promise.resolve(getTenantOutlets(userId));
+  const tenantReports = await Promise.resolve(getTenantReports(userId));
+  const tenantLatestScore = await Promise.resolve(getTenantLatestScore(userId));
 
+  
   const currentDate = new Date().toISOString().slice(0, 10);
-  const montlyScoresByReportType = await Promise.resolve(calculateMonthlyAverages(auditorId, currentDate));
+  const monthlyScoresByReportType = await Promise.resolve(calculateMonthlyAverages(userId, currentDate));
 
   const pageData = {
-    // monthlyAverageData: monthlyAverageWithIncrease,
     unresolvedNCs: unresolvedNCs,
     nonComplianceRecords: ncRecords,
     ncCount: ncCount,
     institution: auditorInstitution.InstitutionName,
     outletScores: outletScores,
-    monthlyScoresByType: montlyScoresByReportType,
+    monthlyScoresByType: monthlyScoresByReportType,
+    tenantNC: tenantNC,
+    tenantReports: tenantReports,
+    tenantLatestScore: tenantLatestScore
   };
-
+  console.log("**********");
+  console.log(pageData);
+  console.log("**********");
   res.status(200).send(pageData);
 };
 
@@ -48,31 +121,6 @@ const getOutletScores = (auditorId) => {
     });
   });
 };
-
-// const getMonthlyAverageWithIncrease = async (auditorId, res) => {
-//   let results = await Promise.resolve(getMonthlyAverageScores(auditorId));
-//   let currentMonthAverage, previousMonthAverage;
-
-//   if (results[1].year > results[0].year) {
-//     currentMonthAverage = results[1].monthlyaverage;
-//     previousMonthAverage = results[0].monthlyaverage;
-//   } else if (results[1].month > results[0].month) {
-//     currentMonthAverage = results[1].monthlyaverage;
-//     previousMonthAverage = results[0].monthlyaverage;
-//   } else {
-//     currentMonthAverage = results[0].monthlyaverage;
-//     previousMonthAverage = results[1].monthlyaverage;
-//   }
-
-//   let monthlyAverageData = {
-//     currentAverage: parseFloat(currentMonthAverage).toFixed(2),
-//     change: (
-//       parseFloat(currentMonthAverage) - parseFloat(previousMonthAverage)
-//     ).toFixed(2),
-//   };
-
-//   return monthlyAverageData;
-// };
 
 const calculateMonthlyAverages = async (auditorId, dateRange) => {
   let scoresByReportType = await Promise.resolve(
@@ -118,26 +166,6 @@ const getMonthlyScoresByReportType = (auditorId, dateRange) => {
     );
   });
 };
-
-// const getMonthlyAverageScores = (auditorId) => {
-//   let getAveragesQuery = sql
-//     .select()
-//     .from(`getMonthlyAverages(${auditorId})`)
-//     .toParams();
-
-//   return new Promise((resolve) => {
-//     pool.query(
-//       getAveragesQuery.text,
-//       getAveragesQuery.values,
-//       (err, result) => {
-//         if (err) {
-//           console.error(err);
-//           return resolve([]);
-//         } else return resolve(result.rows);
-//       }
-//     );
-//   });
-// };
 
 const getNCPercentage = (auditorId) => {
   let getNCDataQuery = sql
