@@ -266,17 +266,28 @@ const getChecklistQuestions = (req, res) => {
 };
 
 // Export tenant report + non-compliance images
-const exportTenantReport = async (req, res) => {
-  const reportFile = await writeTenantReport(req, res);
-  res.status(200).send(reportFile.buffer);
+const exportTenantReport = (req, res) => {
+  writeTenantReport(req, res)
+    .then((reportFile) => {
+      setExcelResponseHeaders(res, reportFile.fileName);
+      res.status(200).send(reportFile.buffer);
+    })
+    .catch(() => res.sendStatus(500));
 };
 
 // Send report to tenant
-const emailToTenant = async (req, res) => {
-  const reportFile = await writeTenantReport(req, res);
+const emailToTenant = (req, res) => {
   let reportId = parseInt(req.params.reportId);
-  let receiverInfo = await Promise.resolve(getReceiverInfo(reportId));
-  return email.sendTenantReport(receiverInfo, reportFile, res);
+  writeTenantReport(req, res)
+  .then((reportFile) => 
+    getReceiverInfo(reportId).then((receiverInfo) => 
+      email.sendTenantReport(receiverInfo, reportFile, res)
+    )
+    .catch((err) => {
+      throw err;
+    })
+  )
+  .catch(() => res.sendStatus(500));
 };
 
 // Get receiver information
@@ -339,7 +350,6 @@ const writeTenantReport = async (req, res) => {
     reportData.checklistcontents
   );
   addImageToWorksheet(workbook, reportContentsWorksheet, reportImagesArray);
-  setExcelResponseHeaders(res, fileName);
 
   const reportBuffer = await Promise.resolve(workbook.xlsx.writeBuffer());
   return {
@@ -425,6 +435,7 @@ const setExcelResponseHeaders = (res, fileName) => {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
   );
   res.setHeader("Content-Disposition", "attachment; filename=" + fileName);
+  res.setHeader("Access-Control-Expose-Headers", "Content-Disposition");
 };
 
 const addImageToWorksheet = (workbook, worksheet, imageArray) => {
