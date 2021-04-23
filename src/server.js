@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const email = require('./services/email/sendEmail'); // test only
 
 // Middlewares
 app.use(express.urlencoded({extended: true}));
