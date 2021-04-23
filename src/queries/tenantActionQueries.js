@@ -44,6 +44,8 @@ const getNCReport = async (req, res) => {
   let imageUrls = await Promise.all(getSignedUrlArray(reportImageKeys));
   let reportInfo = await Promise.resolve(getReportInfo(reportId));
 
+  if (reportInfo.comments === "") reportInfo.comments = null;
+
   return res.status(200).send({
     ncId: ncId,
     reportInfo: reportInfo,
@@ -193,7 +195,7 @@ const submitRectification = async (req, res) => {
         saveImages(imageKeys, submittedOn)
       ); // Step 3
       let mappedIdsCount = await Promise.resolve(
-          mapImageIds(newRectificationRecord, savedImageIds)
+        mapImageIds(newRectificationRecord, savedImageIds)
       );
       if (mappedIdsCount < 1) return res.sendStatus(500);
     }
@@ -288,8 +290,8 @@ const mapImageIds = (rectificationId, imageKeyObjs) => {
 
   return new Promise((resolve) => {
     pool.query(mapIdsQuery.text, mapIdsQuery.values, (err, results) => {
-        if (err) return resolve(-1);
-        else return resolve(results.rows.length);
+      if (err) return resolve(-1);
+      else return resolve(results.rows.length);
     });
   });
 };

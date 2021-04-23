@@ -53,10 +53,8 @@ const userAuth = (req, res) => {
                     };
                     authResults.user = user;
 
-                    // Create token if user is an auditor
-                    if (user.role == auditorRoleId) {
-                        authResults.token = generateToken(user.id);
-                    }
+                    // Create token for user
+                    authResults.token = generateToken(user.id);
 
                     // console.log(authResults);
 
